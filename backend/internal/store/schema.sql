@@ -79,3 +79,21 @@ CREATE TABLE IF NOT EXISTS evaluation_items (
     points        REAL    NOT NULL,
     PRIMARY KEY (evaluation_id, criterion_id)
 );
+
+CREATE TABLE IF NOT EXISTS appeals (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    evaluation_id   INTEGER NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
+    criterion_id    TEXT    NOT NULL,
+    comment         TEXT    NOT NULL,
+    original_answer TEXT    NOT NULL,
+    status          TEXT    NOT NULL,
+    decision        TEXT    NOT NULL DEFAULT '',
+    final_answer    TEXT,
+    reason          TEXT    NOT NULL DEFAULT '',
+    created_at      TEXT    NOT NULL,
+    resolved_at     TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS appeals_open_unique
+    ON appeals (evaluation_id, criterion_id)
+    WHERE status = 'open';

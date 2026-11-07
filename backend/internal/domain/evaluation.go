@@ -66,6 +66,7 @@ type EvaluationItem struct {
 	Applicable  bool     `json:"applicable"`
 	Q           float64  `json:"q"`
 	Points      float64  `json:"points"`
+	FinalAnswer *string  `json:"final_answer"`
 }
 
 type Evaluation struct {
@@ -80,7 +81,39 @@ type Evaluation struct {
 	W                float64          `json:"w"`
 	GrossError       GrossError       `json:"gross_error"`
 	Items            []EvaluationItem `json:"items"`
+	FinalTotal       *float64         `json:"final_total"`
+	FinalW           *float64         `json:"final_w"`
+	RevisedAt        *time.Time       `json:"revised_at"`
+	Appeals          []Appeal         `json:"appeals"`
 	CreatedAt        time.Time        `json:"created_at"`
 	Checklist        Checklist        `json:"-"`
 	Raw              []byte           `json:"-"`
+}
+
+type AppealStatus string
+
+const (
+	AppealOpen     AppealStatus = "open"
+	AppealResolved AppealStatus = "resolved"
+)
+
+type Decision string
+
+const (
+	DecisionConfirmed Decision = "confirmed"
+	DecisionChanged   Decision = "changed"
+)
+
+type Appeal struct {
+	ID             int64        `json:"id"`
+	EvaluationID   int64        `json:"evaluation_id"`
+	CriterionID    string       `json:"criterion_id"`
+	Comment        string       `json:"comment"`
+	OriginalAnswer string       `json:"original_answer"`
+	Status         AppealStatus `json:"status"`
+	Decision       Decision     `json:"decision"`
+	FinalAnswer    *string      `json:"final_answer"`
+	Reason         string       `json:"reason"`
+	CreatedAt      time.Time    `json:"created_at"`
+	ResolvedAt     *time.Time   `json:"resolved_at"`
 }

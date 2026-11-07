@@ -59,47 +59,69 @@ func (s *Store) CompleteJob(ctx context.Context, job domain.Job, ev domain.Evalu
 }
 
 const evalColumns = `id, job_id, conversation_id, input_hash, checklist_version, checklist_json, model, prompt_version, total, w,
-	gross_error, gross_error_category, gross_error_reason, gross_error_evidence_json, raw_json, created_at`
+	gross_error, gross_error_category, gross_error_reason, gross_error_evidence_json, raw_json, created_at, final_total, final_w, revised_at`
 
-func (s *Store) scanEvaluation(ctx context.Context, row interface{ Scan(...any) error }) (domain.Evaluation, error) {
+type querier interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+func (s *Store) scanEvaluation(ctx context.Context, q querier, row interface{ Scan(...any) error }) (domain.Evaluation, error) {
 	var ev domain.Evaluation
 	var clJSON, geEv, raw, created string
-	var total sql.NullFloat64
+	var total, finalTotal, finalW sql.NullFloat64
+	var revised sql.NullString
 	err := row.Scan(&ev.ID, &ev.JobID, &ev.ConversationID, &ev.InputHash, &ev.ChecklistVersion, &clJSON, &ev.Model, &ev.PromptVersion,
-		&total, &ev.W, &ev.GrossError.Flag, &ev.GrossError.Category, &ev.GrossError.Reason, &geEv, &raw, &created)
+		&total, &ev.W, &ev.GrossError.Flag, &ev.GrossError.Category, &ev.GrossError.Reason, &geEv, &raw, &created, &finalTotal, &finalW, &revised)
 	if err != nil {
 		return ev, err
 	}
 	if total.Valid {
 		ev.Total = &total.Float64
 	}
+	if finalTotal.Valid {
+		ev.FinalTotal = &finalTotal.Float64
+	}
+	if finalW.Valid {
+		ev.FinalW = &finalW.Float64
+	}
+	ev.RevisedAt = nullTime(revised)
 	if err := json.Unmarshal([]byte(clJSON), &ev.Checklist); err != nil {
 		return ev, fmt.Errorf("decode evaluation checklist: %w", err)
 	}
 	_ = json.Unmarshal([]byte(geEv), &ev.GrossError.Evidence)
 	ev.Raw = []byte(raw)
 	ev.CreatedAt = parseTime(created)
-	rows, err := s.db.QueryContext(ctx, `SELECT criterion_id, answer, reason, evidence_json, weight, applicable, q, points
+	rows, err := q.QueryContext(ctx, `SELECT criterion_id, answer, reason, evidence_json, weight, applicable, q, points, final_answer
 		FROM evaluation_items WHERE evaluation_id = ? ORDER BY position`, ev.ID)
 	if err != nil {
 		return ev, err
 	}
-	defer rows.Close()
 	ev.Items = []domain.EvaluationItem{}
 	for rows.Next() {
 		var it domain.EvaluationItem
 		var evJSON string
-		if err := rows.Scan(&it.CriterionID, &it.Answer, &it.Reason, &evJSON, &it.Weight, &it.Applicable, &it.Q, &it.Points); err != nil {
+		var final sql.NullString
+		if err := rows.Scan(&it.CriterionID, &it.Answer, &it.Reason, &evJSON, &it.Weight, &it.Applicable, &it.Q, &it.Points, &final); err != nil {
+			rows.Close()
 			return ev, err
 		}
 		_ = json.Unmarshal([]byte(evJSON), &it.Evidence)
+		if final.Valid {
+			it.FinalAnswer = &final.String
+		}
 		ev.Items = append(ev.Items, it)
 	}
-	return ev, rows.Err()
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return ev, err
+	}
+	ev.Appeals, err = listAppeals(ctx, q, ev.ID, "")
+	return ev, err
 }
 
 func (s *Store) GetEvaluation(ctx context.Context, id int64) (domain.Evaluation, error) {
-	ev, err := s.scanEvaluation(ctx, s.db.QueryRowContext(ctx, `SELECT `+evalColumns+` FROM evaluations WHERE id = ?`, id))
+	ev, err := s.scanEvaluation(ctx, s.db, s.db.QueryRowContext(ctx, `SELECT `+evalColumns+` FROM evaluations WHERE id = ?`, id))
 	if err == sql.ErrNoRows {
 		return ev, ErrNotFound
 	}

@@ -55,6 +55,11 @@ func New(st *store.Store, opt Options, log *slog.Logger) http.Handler {
 	mux.HandleFunc("GET /api/jobs/{id}", s.getJob)
 	mux.HandleFunc("POST /api/jobs/{id}/retry", s.retryJob)
 	mux.HandleFunc("GET /api/evaluations/{id}", s.getEvaluation)
+	mux.HandleFunc("POST /api/checklists", s.createChecklist)
+	mux.HandleFunc("POST /api/evaluations/{id}/appeals", s.createAppeal)
+	mux.HandleFunc("GET /api/appeals", s.listAppeals)
+	mux.HandleFunc("GET /api/appeals/{id}", s.getAppeal)
+	mux.HandleFunc("POST /api/appeals/{id}/decide", s.decideAppeal)
 	if opt.StaticDir != "" {
 		mux.Handle("/", http.FileServer(http.Dir(opt.StaticDir)))
 	}
