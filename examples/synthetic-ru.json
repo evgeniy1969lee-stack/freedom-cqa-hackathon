@@ -1,0 +1,13 @@
+{
+  "conversation_id": "synthetic-ru-001",
+  "language": "RU",
+  "channel": "agent chat",
+  "transcript": [
+    {"timestamp": "00:00", "speaker": "bot", "text": "Подключаю оператора."},
+    {"timestamp": "00:00", "speaker": "client", "text": "Здравствуйте! Где я могу посмотреть общие тарифы брокера?"},
+    {"timestamp": "00:05", "speaker": "operator", "text": "Здравствуйте! Меня зовут Алия. Откройте на официальном сайте раздел «Документы», затем выберите тарифы по своему типу счёта."},
+    {"timestamp": "00:18", "speaker": "client", "text": "Спасибо, это всё."},
+    {"timestamp": "00:21", "speaker": "operator", "text": "Если появятся вопросы, обращайтесь. До свидания!"}
+  ],
+  "audio_url": null
+}
