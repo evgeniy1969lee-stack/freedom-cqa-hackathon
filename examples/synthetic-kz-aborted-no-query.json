@@ -1,0 +1,12 @@
+{
+  "conversation_id": "synthetic-kz-aborted-007",
+  "language": "KZ",
+  "channel": "agent chat",
+  "transcript": [
+    {"timestamp": "00:00", "speaker": "client", "text": "Сәлеметсіз бе!"},
+    {"timestamp": "00:03", "speaker": "operator", "text": "Сәлеметсіз бе! Менің атым Нұрлан. Сізге қалай көмектесе аламын?"},
+    {"timestamp": "00:30", "speaker": "system", "text": "Клиент байланысты үзді."}
+  ],
+  "audio_url": null,
+  "_comment": "Синтетический тест KZ: чат оборвался ДО того, как клиент сформулировал запрос (04=NA, 07=NA)."
+}

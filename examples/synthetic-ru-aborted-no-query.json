@@ -1,0 +1,12 @@
+{
+  "conversation_id": "synthetic-ru-aborted-006",
+  "language": "RU",
+  "channel": "agent chat",
+  "transcript": [
+    {"timestamp": "00:00", "speaker": "client", "text": "Здравствуйте."},
+    {"timestamp": "00:02", "speaker": "operator", "text": "Здравствуйте! Меня зовут Арман. Чем я могу вам помочь?"},
+    {"timestamp": "00:25", "speaker": "system", "text": "Клиент отключился от чата."}
+  ],
+  "audio_url": null,
+  "_comment": "Синтетический тест: чат оборвался ДО того, как клиент сформулировал запрос (04=NA, 07=NA)."
+}

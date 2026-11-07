@@ -1,0 +1,12 @@
+{
+  "conversation_id": "synthetic-en-aborted-008",
+  "language": "EN",
+  "channel": "agent chat",
+  "transcript": [
+    {"timestamp": "00:00", "speaker": "client", "text": "Hello."},
+    {"timestamp": "00:04", "speaker": "operator", "text": "Hello! My name is Sarah. How may I assist you today?"},
+    {"timestamp": "00:35", "speaker": "system", "text": "User disconnected from session."}
+  ],
+  "audio_url": null,
+  "_comment": "Синтетический тест EN: чат оборвался ДО того, как клиент сформулировал запрос (04=NA, 07=NA)."
+}
