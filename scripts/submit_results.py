@@ -178,6 +178,10 @@ def run_jobs(args, records, hashes, deadline):
         cid = record["conversation_id"]
         jobs = request(args.api, "jobs?conversation_id=" + quote(cid, safe=""))["jobs"]
         job = latest_jobs(jobs, hashes, args.checklist_version).get(cid)
+        if job is not None and job["status"] in ("queued", "running"):
+            job = wait_for_job(args.api, job, deadline)
+            if deadline is not None and time.monotonic() >= deadline:
+                return False
         stale = bool(job and job["status"] == "completed" and not same_run(job, args))
         if job is None or stale:
             row = request(args.api, "conversations/" + quote(cid, safe="") + "/evaluate",
@@ -201,7 +205,9 @@ def error_record(cid, message):
 
 
 def export_results(args, records, hashes, rubric, allow_unfinished):
-    latest = latest_jobs(request(args.api, "jobs")["jobs"], hashes, args.checklist_version)
+    jobs = request(args.api, "jobs")["jobs"]
+    latest = latest_jobs((job for job in jobs if job["status"] != "completed" or same_run(job, args)),
+                         hashes, args.checklist_version)
     missing = [r["conversation_id"] for r in records
                if latest.get(r["conversation_id"], {}).get("status") not in ("completed", "failed")]
     require(not missing or allow_unfinished, f"{len(missing)} jobs still have no terminal result")
@@ -216,7 +222,6 @@ def export_results(args, records, hashes, rubric, allow_unfinished):
         if job["status"] == "failed":
             rows.append(error_record(cid, job["error"] or "Не удалось получить ответ модели."))
             continue
-        require(same_run(job, args), f"{cid}: run the selected model and prompt before exporting")
         evaluation = request(args.api, f"evaluations/{job['evaluation_id']}")
         require(evaluation["input_hash"] == hashes[cid] and evaluation["conversation_id"] == cid
                 and evaluation["checklist_version"] == args.checklist_version and same_run(evaluation, args),
@@ -239,7 +244,7 @@ def main():
     parser.add_argument("dataset", choices=COUNTS)
     parser.add_argument("input", type=Path, help="Saved organizer API response")
     parser.add_argument("--team-name")
-    parser.add_argument("--api", default="http://127.0.0.1:18088")
+    parser.add_argument("--api", default="http://127.0.0.1:8080")
     parser.add_argument("--checklist-version", type=int, required=True)
     parser.add_argument("--model", default="qwen3.5:2b")
     parser.add_argument("--prompt-version", default="ml2-v4")

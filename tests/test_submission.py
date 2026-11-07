@@ -55,9 +55,12 @@ class SubmissionTests(unittest.TestCase):
         completed = {"conversation_id": "sample", "status": "completed", "input_hash": "hash",
                      "checklist_version": 1, "model": args.model, "prompt_version": args.prompt_version,
                      "id": 1, "evaluation_id": 1}
+        stale = {**completed, "conversation_id": "unfinished", "input_hash": "hash2",
+                 "prompt_version": "ml2-v3", "id": 2}
+        stale_retry = {**completed, "prompt_version": "ml2-v3", "id": 3}
         with TemporaryDirectory() as temp, patch.object(submission, "ROOT", Path(temp)), \
                 patch.object(submission, "verify_transcript"), \
-                patch.object(submission, "request", side_effect=lambda _, route: {"jobs": [completed]}
+                patch.object(submission, "request", side_effect=lambda _, route: {"jobs": [completed, stale, stale_retry]}
                              if route == "jobs" else self.evaluation):
             with self.assertRaisesRegex(ValueError, "no terminal result"):
                 submission.export_results(args, records, hashes, self.rubric, False)
@@ -68,6 +71,20 @@ class SubmissionTests(unittest.TestCase):
         self.assertEqual([r["conversation_id"] for r in result["results"]], ["sample", "unfinished"])
         error = result["results"][1]
         self.assertEqual((error["status"], error["criteria"], error["score"]), ("error", [], None))
+        self.assertEqual(result["results"][0]["status"], "ok")
+
+    def test_replaces_in_flight_job_that_completed_with_an_old_prompt(self):
+        args = SimpleNamespace(api="local", checklist_version=1, model="qwen3.5:2b",
+                               prompt_version="ml2-v4", pause_file=None, retry_failed=False)
+        running = {"id": 1, "conversation_id": "sample", "input_hash": "hash",
+                   "checklist_version": 1, "status": "running"}
+        stale = {**running, "status": "completed", "model": args.model, "prompt_version": "ml2-v3"}
+        current = {**stale, "id": 2, "prompt_version": args.prompt_version}
+        with patch.object(submission, "request", side_effect=[{"jobs": [running]}, {"job": current}]) as request, \
+                patch.object(submission, "wait_for_job", side_effect=[stale, current]):
+            self.assertTrue(submission.run_jobs(args, [{"conversation_id": "sample"}], {"sample": "hash"}, None))
+        request.assert_called_with("local", "conversations/sample/evaluate",
+                                   {"checklist_version": 1, "force_new": True})
 
 
 if __name__ == "__main__":

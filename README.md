@@ -2,7 +2,7 @@
 
 Prototype for evaluating customer-support conversations against a configurable quality checklist.
 
-Status: in development.
+The app serves the interface and API together and evaluates chats locally with Ollama.
 
 Team roles and implementation prompts are in [docs/team-plan.md](docs/team-plan.md).
 
@@ -47,8 +47,20 @@ Ollama request with the larger context on CPU. The CLI accepts
 ## Run the backend with local ML
 
 Install Go 1.27.1 or later, Python 3.10 or later, and Ollama. With Ollama
-running, install the local model once with `ollama pull qwen3.5:2b`.
-In a terminal at the repository root, start the Python HTTP service.
+running, install the local model once with `ollama pull qwen3.5:2b`. From the
+repository root, run:
+
+~~~powershell
+python -X utf8 scripts/run_local.py
+~~~
+
+Open `http://127.0.0.1:8080/` after `CQA ready` appears. The launcher builds Go,
+starts the Python bridge and app, and waits for the Ollama model readiness check.
+It binds to localhost. Use `--api-port`, `--ml-port`, and `--db` for an isolated
+run, or `--go` if Go is installed outside `PATH`. Ctrl+C stops both services.
+
+To start the services manually for debugging, start the Python HTTP service in
+a terminal at the repository root.
 
 ~~~powershell
 python -X utf8 -m ml.service --port 8091
@@ -66,8 +78,8 @@ origin. The header shows when the Python bridge responds and the selected
 model is installed in Ollama. The test stub has its own status and
 results banner.
 
-For the organizer API, set `CQA_DEV_URL` in the Go terminal before
-starting the backend. Use the full GET link from page 3 of the Student
+For the organizer API, set `CQA_DEV_URL` in the terminal before
+starting the launcher or backend. Use the full GET link from page 3 of the Student
 Guide. Open **Загрузить DEV** in the app and enter the group ID issued
 for the dataset. The server sends the GET request. The **Импорт JSON**
 action also accepts a saved organizer response.
