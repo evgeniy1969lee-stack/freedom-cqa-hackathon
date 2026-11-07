@@ -23,7 +23,7 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&c.Addr, "addr", env("CQA_ADDR", ":8080"), "listen address (CQA_ADDR)")
 	fs.StringVar(&c.DBPath, "db", env("CQA_DB", "resources/cqa.db"), "SQLite file path (CQA_DB)")
 	fs.StringVar(&c.DevURL, "dev-url", env("CQA_DEV_URL", ""), "signed URL of the DEV dataset (CQA_DEV_URL); never logged")
-	fs.StringVar(&c.StaticDir, "static", env("CQA_STATIC", ""), "directory with the frontend to serve at / (CQA_STATIC)")
+	fs.StringVar(&c.StaticDir, "static", env("CQA_STATIC", "../frontend"), "directory with the frontend to serve at / (CQA_STATIC)")
 	fs.StringVar(&c.MLURL, "ml-url", env("CQA_ML_URL", ""), "ML evaluator endpoint (CQA_ML_URL); empty uses the stub evaluator")
 	fs.DurationVar(&c.MLTimeout, "ml-timeout", envDuration("CQA_ML_TIMEOUT", 10*time.Minute), "timeout per ML call (CQA_ML_TIMEOUT)")
 	fs.IntVar(&c.Workers, "workers", envInt("CQA_WORKERS", 1), "parallel evaluations (CQA_WORKERS)")

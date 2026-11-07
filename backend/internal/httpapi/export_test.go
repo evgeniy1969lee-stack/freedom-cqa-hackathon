@@ -69,16 +69,16 @@ func TestExport(t *testing.T) {
 }
 
 func TestDevTarget(t *testing.T) {
-	got, _ := devTarget("https://h/x?sig=abc", "")
-	if got != "https://h/x?sig=abc" {
+	got, _ := devTarget("https://h/x?k=v", "")
+	if got != "https://h/x?k=v" {
 		t.Fatal(got)
 	}
-	got, _ = devTarget("https://h/groups/{group_id}/data?sig=abc", "g 1")
-	if got != "https://h/groups/g%201/data?sig=abc" {
+	got, _ = devTarget("https://h/groups/{group_id}/data?k=v", "g 1")
+	if got != "https://h/groups/g%201/data?k=v" {
 		t.Fatal(got)
 	}
-	got, _ = devTarget("https://h/x?sig=abc", "g1")
-	if got != "https://h/x?group_id=g1&sig=abc" {
+	got, _ = devTarget("https://h/x?k=v", "g1")
+	if got != "https://h/x?group_id=g1&k=v" {
 		t.Fatal(got)
 	}
 }
