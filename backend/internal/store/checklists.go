@@ -85,14 +85,29 @@ func (s *Store) GetChecklist(ctx context.Context, version int) (domain.Checklist
 	return cl, nil
 }
 
+const legacyDraftNote = "Freedom CQA checklist, starting version. DRAFT: structure follows the team plan; weights and N/A rules must be confirmed against CQA_Chat_Quality_Checklist PDF, then set draft=false."
+
 func (s *Store) EnsureSeedChecklist(ctx context.Context, seed domain.Checklist) error {
-	var n int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM checklists`).Scan(&n); err != nil {
+	if err := seed.Validate(); err != nil {
 		return err
 	}
-	if n > 0 {
-		return nil
+	seed.CreatedAt = time.Now().UTC()
+	body, err := json.Marshal(seed)
+	if err != nil {
+		return err
 	}
-	_, err := s.SaveChecklist(ctx, seed)
-	return err
+	// Add a new version when upgrading the original draft. Existing jobs and
+	// evaluations retain their checklist snapshots.
+	_, err = s.db.ExecContext(ctx, `
+		INSERT INTO checklists (version, created_at, note, criteria_json)
+		SELECT previous + 1, ?, ?, json_set(?, '$.version', previous + 1)
+		FROM (SELECT COALESCE(MAX(version), 0) AS previous FROM checklists)
+		WHERE previous = 0 OR EXISTS (
+			SELECT 1 FROM checklists
+			WHERE version = previous AND note = ? AND json_extract(criteria_json, '$.draft') = 1
+		)`, seed.CreatedAt.Format(time.RFC3339Nano), seed.Note, string(body), legacyDraftNote)
+	if err != nil {
+		return fmt.Errorf("ensure seed checklist: %w", err)
+	}
+	return nil
 }

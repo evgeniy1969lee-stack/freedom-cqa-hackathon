@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite*
+__pycache__/
+.venv/
+node_modules/
+data/
+recordings/
