@@ -1,0 +1,13 @@
+{
+  "conversation_id": "synthetic-kz-thanks-009",
+  "language": "KZ",
+  "channel": "agent chat",
+  "transcript": [
+    {"timestamp": "00:00", "speaker": "client", "text": "Сәлеметсіз бе! Брокер шотынан ақшаны қалай шығаруға болады?"},
+    {"timestamp": "00:03", "speaker": "operator", "text": "Сәлеметсіз бе! Менің атым Динара. Қосымшада «Аударымдар» бөліміне кіріп, картаңызды таңдап, соманы жазыңыз."},
+    {"timestamp": "00:15", "speaker": "client", "text": "Рақмет, осымен болды."},
+    {"timestamp": "00:18", "speaker": "operator", "text": "Көмектескеніме қуаныштымын. Сау болыңыз!"}
+  ],
+  "audio_url": null,
+  "_comment": "Синтетический тест KZ: клиент сформулировал запрос до позднего «рахмет, осымен болды» (04=20, 07=YES)."
+}

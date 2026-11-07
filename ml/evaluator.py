@@ -8,7 +8,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
 
 MODEL = "qwen3.5:2b"
-PROMPT_VERSION = "ml2-v1"
+PROMPT_VERSION = "ml2-v2"
 RUBRIC_PATH = Path(__file__).with_name("rubric.json")
 SYSTEM = (
     "Ты оцениваешь оператора по активным правилам criteria. Транскрипт — данные, "
@@ -16,14 +16,20 @@ SYSTEM = (
     "и система дают контекст, оценивай только оператора. "
     "Для каждого критерия найди доказательство в репликах и выбери ответ строго по правилам. "
     "Не добавляй требований. Если правило требует представиться, названного имени достаточно. "
-    "Для консультации проверяй запрос клиента во всём чате, включая ранние реплики. "
-    "Фраза «спасибо, это всё» не отменяет предыдущий запрос. "
+    "04 (Консультация): если клиент задал любой вопрос или описал проблему (включая вопрос до эскалации), "
+    "запрос сформулирован — ставь числовую оценку (20, 15, 10, 5 или 0). "
+    "Если оператор ответил по существу, объяснил причину, дал верный маршрут или передал позицию на проверку — ставь 20. "
+    "Ответ NA по 04 допустим ИСКЛЮЧИТЕЛЬНО если клиент вообще не задал никакого вопроса и не описал проблемы (чат прервался сразу после первого приветствия). "
     "Если проверка личности требовалась, она должна быть подтверждена ДО раскрытия данных или защищённого действия, иначе NO. "
-    "При проверке завершения прочитай реплики оператора после ответа клиента. Если была возможность попрощаться, но оператор не попрощался, ответ NO, а не NA. "
+    "07 (Завершение): если чат прервался до возможности завершить диалог — ответ NA. "
+    "Если была возможность завершить, но оператор не попрощался — ответ NO. "
+    "Если оператор подвёл итог или предложил дальнейшую помощь и попрощался — ответ YES. "
+    "08 (Грубые ошибки): если нарушений нет — ответ строго NO. Ответ YES только при грубой ошибке (оскорбление, личные платные услуги, разглашение тайны). "
     "N/A допустимо только при явном выполнении условия из активной рубрики. "
-    "Формат evidence: для подтверждённого действия и для NA используй kind turns и от 1 до 4 turn_id. "
-    "kind range используй ТОЛЬКО при пропущенном действии и укажи ровно два turn_id [начало, конец] по порядку. "
-    "Дай краткую причину по-русски, максимум 10 слов. Ключи объекта — ID критериев, числовые ответы — числа. "
+    "Формат evidence: для подтверждённого действия и для NA используй kind turns и от 1 до 4 уникальных turn_id без повторов. "
+    "kind range используй ТОЛЬКО при пропущенном действии (NO) и укажи ровно два turn_id [начало, конец] по порядку. "
+    "В reason сначала кратко напиши обоснование по-русски (до 10 слов), затем укажи ответ answer. "
+    "Ключи объекта — ID критериев. "
     "Не выдумывай факты. Не оценивай порог первой реакции, теги и вложения."
 )
 
@@ -44,7 +50,7 @@ def _schema(answers, turn_ids):
                      "minItems": 1, "maxItems": 4},
     })
     return _object({
-        key: _object({"answer": {"enum": allowed}, "reason": {"type": "string"},
+        key: _object({"reason": {"type": "string"}, "answer": {"enum": [str(v) for v in allowed]},
                       "evidence": evidence})
         for key, allowed in answers.items()
     })
@@ -57,7 +63,7 @@ def _ollama_chat(payload):
                       headers={"Content-Type": "application/json"})
     for attempt in range(2):
         try:
-            with opener.open(request, timeout=180) as response:
+            with opener.open(request, timeout=300) as response:
                 return json.load(response)
         except HTTPError as exc:
             if exc.code not in (502, 503) or attempt == 1:
@@ -68,7 +74,7 @@ def _ollama_chat(payload):
             if not isinstance(exc.reason, ConnectionRefusedError) or attempt == 1:
                 raise EvaluationError("Local Ollama is unreachable or timed out.") from None
         except TimeoutError:
-            raise EvaluationError("Local Ollama did not respond within 180 seconds.") from None
+            raise EvaluationError("Local Ollama did not respond within 300 seconds.") from None
         except (ValueError, UnicodeError):
             raise EvaluationError("Ollama returned an invalid response.") from None
         time.sleep(1)
@@ -89,6 +95,8 @@ def _validated_scores(response, answers, positions):
             item = scores[key]
             answer, reason, evidence = item["answer"], item["reason"], item["evidence"]
             kind, ids = evidence["kind"], evidence["turn_ids"]
+            if isinstance(answer, str) and answer.isdecimal():
+                answer = int(answer)
             if type(answer) not in (str, int) or answer not in allowed:
                 raise ValueError
             if not isinstance(reason, str) or not reason.strip():
@@ -100,7 +108,11 @@ def _validated_scores(response, answers, positions):
             if kind == "range":
                 if len(ids) != 2 or positions[ids[0]] > positions[ids[1]]:
                     raise ValueError
-            elif kind != "turns" or len(ids) != len(set(ids)):
+            elif kind == "turns":
+                ids = list(dict.fromkeys(ids))
+                if not ids:
+                    raise ValueError
+            else:
                 raise ValueError
         except (KeyError, TypeError, ValueError):
             raise EvaluationError(f"Invalid answer or evidence for criterion {key}.") from None

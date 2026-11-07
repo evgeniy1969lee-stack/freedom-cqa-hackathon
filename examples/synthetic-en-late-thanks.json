@@ -1,0 +1,13 @@
+{
+  "conversation_id": "synthetic-en-thanks-010",
+  "language": "EN",
+  "channel": "agent chat",
+  "transcript": [
+    {"timestamp": "00:00", "speaker": "client", "text": "Hello! How can I withdraw funds from my brokerage account?"},
+    {"timestamp": "00:04", "speaker": "operator", "text": "Hello! My name is John. In the mobile app, go to 'Transfers', select your linked bank card, enter the amount, and confirm with SMS."},
+    {"timestamp": "00:18", "speaker": "client", "text": "Got it, thanks, that's all for now."},
+    {"timestamp": "00:22", "speaker": "operator", "text": "You are welcome. Have a wonderful day!"}
+  ],
+  "audio_url": null,
+  "_comment": "Синтетический тест EN: клиент сформулировал запрос до позднего «thanks, that's all» (04=20, 07=YES)."
+}

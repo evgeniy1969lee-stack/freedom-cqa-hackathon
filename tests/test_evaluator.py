@@ -36,6 +36,34 @@ class EvaluatorTests(unittest.TestCase):
         result = evaluate(self.dialogue, self.rubric, chat=reply)
         self.assertEqual(result["criteria"], [{"criterion_id": "new-rule", **self.item}])
 
+    def test_evidence_deduplication_and_reason_first(self):
+        def reply(payload):
+            props = list(payload["format"]["properties"]["new-rule"]["properties"])
+            self.assertEqual(props, ["reason", "answer", "evidence"])
+            dup_item = {"reason": "OK", "answer": "YES",
+                        "evidence": {"kind": "turns", "turn_ids": [1, 1]}}
+            return completed({"new-rule": dup_item})
+
+        result = evaluate(self.dialogue, self.rubric, chat=reply)
+        self.assertEqual(result["criteria"][0]["evidence"]["turn_ids"], [1])
+
+    def test_numeric_string_conversion(self):
+        numeric_rubric = {
+            "version": "test",
+            "criteria": [
+                {"criterion_id": "04", "title": "Consultation", "weight": 20,
+                 "rules": {"20": "Closed", "10": "Partial", "0": "None", "NA": "Aborted"}}
+            ]
+        }
+        def reply(payload):
+            # Model emitted "20" as string from string enum
+            item = {"reason": "All good", "answer": "20", "evidence": {"kind": "turns", "turn_ids": [1]}}
+            return completed({"04": item})
+
+        result = evaluate(self.dialogue, numeric_rubric, chat=reply)
+        self.assertEqual(result["criteria"][0]["answer"], 20)
+        self.assertIsInstance(result["criteria"][0]["answer"], int)
+
     def test_invalid_answers_and_evidence_are_rejected(self):
         for changed in (
             {"answer": "NA"},
