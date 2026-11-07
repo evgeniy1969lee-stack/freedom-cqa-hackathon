@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/homepunks/datathong/internal/importer"
@@ -21,6 +22,7 @@ const maxBody = 64 << 20
 
 type Server struct {
 	store       *store.Store
+	mlName      string
 	worker      *queue.Worker
 	maxAttempts int
 	devURL      string
@@ -29,6 +31,7 @@ type Server struct {
 }
 
 type Options struct {
+	MLName      string
 	DevURL      string
 	StaticDir   string
 	Worker      *queue.Worker
@@ -39,7 +42,7 @@ func New(st *store.Store, opt Options, log *slog.Logger) http.Handler {
 	if opt.MaxAttempts < 1 {
 		opt.MaxAttempts = 1
 	}
-	s := &Server{store: st, worker: opt.Worker, maxAttempts: opt.MaxAttempts, devURL: opt.DevURL, client: &http.Client{Timeout: 60 * time.Second}, log: log}
+	s := &Server{store: st, mlName: opt.MLName, worker: opt.Worker, maxAttempts: opt.MaxAttempts, devURL: opt.DevURL, client: &http.Client{Timeout: 60 * time.Second}, log: log}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("POST /api/import", s.importBody)
@@ -60,6 +63,7 @@ func New(st *store.Store, opt Options, log *slog.Logger) http.Handler {
 	mux.HandleFunc("GET /api/appeals", s.listAppeals)
 	mux.HandleFunc("GET /api/appeals/{id}", s.getAppeal)
 	mux.HandleFunc("POST /api/appeals/{id}/decide", s.decideAppeal)
+	mux.HandleFunc("GET /api/export", s.exportEvaluations)
 	if opt.StaticDir != "" {
 		mux.Handle("/", http.FileServer(http.Dir(opt.StaticDir)))
 	}
@@ -67,7 +71,14 @@ func New(st *store.Store, opt Options, log *slog.Logger) http.Handler {
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "time": time.Now().UTC()})
+	counts, err := s.store.JobCounts(r.Context())
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "time": time.Now().UTC(), "ml": s.mlName, "dev_url_configured": s.devURL != "", "jobs": counts,
+	})
 }
 
 type importResult struct {
@@ -91,7 +102,12 @@ func (s *Server) importDev(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "DEV URL is not configured (set CQA_DEV_URL)")
 		return
 	}
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.devURL, nil)
+	target, err := devTarget(s.devURL, r.URL.Query().Get("group_id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DEV URL is malformed")
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, target, nil)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DEV URL is malformed")
 		return
@@ -201,6 +217,23 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 func writeError(w http.ResponseWriter, code int, msg string) {
 	writeJSON(w, code, map[string]string{"error": msg})
+}
+
+func devTarget(base, groupID string) (string, error) {
+	if groupID == "" {
+		return base, nil
+	}
+	if strings.Contains(base, "{group_id}") {
+		return strings.ReplaceAll(base, "{group_id}", url.PathEscape(groupID)), nil
+	}
+	u, err := url.Parse(base)
+	if err != nil {
+		return "", err
+	}
+	q := u.Query()
+	q.Set("group_id", groupID)
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }
 
 func stripURL(err error) string {

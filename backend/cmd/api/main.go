@@ -49,9 +49,11 @@ func run(log *slog.Logger) error {
 	}
 
 	var ev evaluator.Evaluator
+	mlName := "http"
 	if cfg.MLURL == "" {
 		log.Warn("CQA_ML_URL is empty: using the stub evaluator; results are placeholders")
 		ev = evaluator.Stub{}
+		mlName = "stub"
 	} else {
 		ev = evaluator.HTTP{URL: cfg.MLURL, Client: &http.Client{}}
 	}
@@ -65,7 +67,7 @@ func run(log *slog.Logger) error {
 	srv := &http.Server{
 		Addr: cfg.Addr,
 		Handler: httpapi.New(st, httpapi.Options{
-			DevURL: cfg.DevURL, StaticDir: cfg.StaticDir, Worker: worker, MaxAttempts: cfg.MaxAttempts,
+			MLName: mlName, DevURL: cfg.DevURL, StaticDir: cfg.StaticDir, Worker: worker, MaxAttempts: cfg.MaxAttempts,
 		}, log),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

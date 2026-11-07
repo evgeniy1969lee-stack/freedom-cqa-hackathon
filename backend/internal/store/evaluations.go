@@ -153,3 +153,39 @@ func (s *Store) ListEvaluations(ctx context.Context, conversationID string) ([]d
 	}
 	return out, nil
 }
+
+func (s *Store) ExportEvaluationIDs(ctx context.Context, conversationID string, checklistVersion int, all bool) ([]int64, error) {
+	q := `SELECT e.id FROM evaluations e WHERE 1=1`
+	var args []any
+	if conversationID != "" {
+		q += ` AND e.conversation_id = ?`
+		args = append(args, conversationID)
+	}
+	if checklistVersion != 0 {
+		q += ` AND e.checklist_version = ?`
+		args = append(args, checklistVersion)
+	}
+	if !all {
+		q += ` AND e.id = (SELECT MAX(e2.id) FROM evaluations e2 WHERE e2.conversation_id = e.conversation_id`
+		if checklistVersion != 0 {
+			q += ` AND e2.checklist_version = ?`
+			args = append(args, checklistVersion)
+		}
+		q += `)`
+	}
+	q += ` ORDER BY e.conversation_id, e.id`
+	rows, err := s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
