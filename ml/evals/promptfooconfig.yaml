@@ -1,0 +1,21 @@
+description: CQA ML-2 local prompt comparison
+prompts:
+  - '{{dialogue.conversation_id}}'
+providers:
+  - id: file://provider.py
+    label: baseline
+    config:
+      variant: baseline
+  - id: file://provider.py
+    label: candidate
+    config:
+      variant: candidate
+  - id: file://provider.py
+    label: compact
+    config:
+      variant: compact
+tests: file://cases.json
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://assert-answers.cjs

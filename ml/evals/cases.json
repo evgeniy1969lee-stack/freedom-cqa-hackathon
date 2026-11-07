@@ -1,0 +1,142 @@
+[
+  {
+    "description": "tuning RU: public tariff question and explicit close",
+    "vars": {
+      "dialogue": {
+        "conversation_id": "synthetic-ru-001",
+        "language": "RU",
+        "channel": "agent chat",
+        "transcript": [
+          {
+            "timestamp": "00:00",
+            "speaker": "bot",
+            "text": "Подключаю оператора."
+          },
+          {
+            "timestamp": "00:00",
+            "speaker": "client",
+            "text": "Здравствуйте! Где я могу посмотреть общие тарифы брокера?"
+          },
+          {
+            "timestamp": "00:05",
+            "speaker": "operator",
+            "text": "Здравствуйте! Меня зовут Алия. Откройте на официальном сайте раздел «Документы», затем выберите тарифы по своему типу счёта."
+          },
+          {
+            "timestamp": "00:18",
+            "speaker": "client",
+            "text": "Спасибо, это всё."
+          },
+          {
+            "timestamp": "00:21",
+            "speaker": "operator",
+            "text": "Если появятся вопросы, обращайтесь. До свидания!"
+          }
+        ],
+        "audio_url": null
+      },
+      "expected": {
+        "01": "YES",
+        "02": "NA",
+        "03": "NA",
+        "04": 20,
+        "05": "YES",
+        "06": 10,
+        "07": "YES",
+        "08": "NO"
+      }
+    }
+  },
+  {
+    "description": "challenge KZ: bot introduces itself, operator closes without farewell",
+    "vars": {
+      "dialogue": {
+        "conversation_id": "ml2-kz-reset",
+        "language": "KZ",
+        "channel": "agent chat",
+        "transcript": [
+          {
+            "timestamp": "00:00",
+            "speaker": "client",
+            "text": "Құпиясөзді қалпына келтіру сілтемесін қайдан табамын?"
+          },
+          {
+            "timestamp": "00:01",
+            "speaker": "bot",
+            "text": "Сәлеметсіз бе! Менің атым Аружан, операторды қосамын."
+          },
+          {
+            "timestamp": "00:02",
+            "speaker": "operator",
+            "text": "Сәлеметсіз бе! Кіру бетінде «Құпиясөзді ұмыттыңыз ба?» батырмасын басыңыз."
+          },
+          {
+            "timestamp": "00:03",
+            "speaker": "client",
+            "text": "Рақмет, таптым."
+          },
+          {
+            "timestamp": "00:04",
+            "speaker": "system",
+            "text": "Оператор чатты жапты."
+          }
+        ]
+      },
+      "expected": {
+        "01": "NO",
+        "03": "NA",
+        "04": 20,
+        "07": "NO",
+        "08": "NO"
+      }
+    }
+  },
+  {
+    "description": "challenge EN: late verification and private payment",
+    "vars": {
+      "dialogue": {
+        "conversation_id": "ml2-en-security",
+        "language": "EN",
+        "channel": "agent chat",
+        "transcript": [
+          {
+            "timestamp": "00:00",
+            "speaker": "client",
+            "text": "What's the balance of my brokerage account?"
+          },
+          {
+            "timestamp": "00:01",
+            "speaker": "operator",
+            "text": "Hello, I'm Alex. Your confidential account balance is $1,240."
+          },
+          {
+            "timestamp": "00:02",
+            "speaker": "system",
+            "text": "Customer identity verification completed after the balance was disclosed."
+          },
+          {
+            "timestamp": "00:03",
+            "speaker": "operator",
+            "text": "For a private paid consultation, please send the fee directly to me."
+          },
+          {
+            "timestamp": "00:04",
+            "speaker": "client",
+            "text": "No, thanks."
+          },
+          {
+            "timestamp": "00:05",
+            "speaker": "operator",
+            "text": "Let me know if you need anything else. Goodbye."
+          }
+        ]
+      },
+      "expected": {
+        "01": "YES",
+        "03": "NO",
+        "07": "YES",
+        "08": "YES"
+      }
+    }
+  }
+]
