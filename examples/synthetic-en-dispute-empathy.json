@@ -1,0 +1,14 @@
+{
+  "conversation_id": "synthetic-en-004",
+  "language": "EN",
+  "channel": "agent chat",
+  "transcript": [
+    {"timestamp": "00:00", "speaker": "client", "text": "Hello, I am extremely frustrated! My funds withdrawal has been delayed for 3 days and I urgently need the money!"},
+    {"timestamp": "00:04", "speaker": "operator", "text": "Hello! My name is Elena. I completely understand your frustration and apologize for the delay. Let me check the payment processing status immediately."},
+    {"timestamp": "00:15", "speaker": "operator", "text": "The transaction was verified by the bank and is expected to settle within 2 business hours."},
+    {"timestamp": "00:20", "speaker": "client", "text": "Alright, thank you for clarifying."},
+    {"timestamp": "00:22", "speaker": "operator", "text": "You are welcome. If you need any further assistance, please let me know. Have a great day!"}
+  ],
+  "audio_url": null,
+  "_comment": "Синтетический пограничный тест EN: недовольство клиента, оператор поздоровался и представился (01=YES), проявил эмпатию и среагировал на конкретную проблему (05=YES), консультация полная (04=20), завершил с предложением помощи и прощанием (07=YES)."
+}
