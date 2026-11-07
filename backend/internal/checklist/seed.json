@@ -1,0 +1,80 @@
+{
+  "note": "Freedom CQA checklist, starting version. DRAFT: structure follows the team plan; weights and N/A rules must be confirmed against CQA_Chat_Quality_Checklist PDF, then set draft=false.",
+  "draft": true,
+  "gross_error_categories": [],
+  "criteria": [
+    {
+      "criterion_id": "01",
+      "name": "Приветствие и представление",
+      "description": "Оператор в первом ответе поздоровался на языке клиента и представился. Реплика бота служит контекстом.",
+      "weight": 0,
+      "type": "yes_no",
+      "na_allowed": false
+    },
+    {
+      "criterion_id": "02",
+      "name": "Выявление потребности",
+      "description": "Оператор уточнил потребность клиента.",
+      "weight": 0,
+      "type": "yes_no",
+      "na_allowed": true,
+      "na_rule": "N/A только когда исходных сведений от клиента достаточно для ответа."
+    },
+    {
+      "criterion_id": "03",
+      "name": "Идентификация",
+      "description": "Оператор подтвердил личность клиента до раскрытия данных или защищённого действия.",
+      "weight": 0,
+      "type": "yes_no",
+      "na_allowed": true,
+      "na_rule": "N/A когда обращение не требует идентификации."
+    },
+    {
+      "criterion_id": "04",
+      "name": "Консультация",
+      "description": "Оператор ответил на все существенные вопросы и дал корректный следующий шаг.",
+      "weight": 0,
+      "type": "scale",
+      "steps": [
+        {"value": 0, "label": ""},
+        {"value": 5, "label": ""},
+        {"value": 10, "label": ""},
+        {"value": 15, "label": ""},
+        {"value": 20, "label": ""}
+      ],
+      "na_allowed": false
+    },
+    {
+      "criterion_id": "05",
+      "name": "Эмпатия",
+      "description": "При недовольстве клиента оператор отреагировал на конкретную проблему.",
+      "weight": 0,
+      "type": "yes_no",
+      "na_allowed": true,
+      "na_rule": "N/A когда клиент не выражал недовольства."
+    },
+    {
+      "criterion_id": "06",
+      "name": "Ведение диалога",
+      "description": "Оператор вёл диалог, обозначал ожидание и следующий шаг.",
+      "weight": 0,
+      "type": "scale",
+      "steps": [
+        {"value": 0, "label": ""},
+        {"value": 4, "label": ""},
+        {"value": 7, "label": ""},
+        {"value": 10, "label": ""}
+      ],
+      "na_allowed": false
+    },
+    {
+      "criterion_id": "07",
+      "name": "Завершение",
+      "description": "Оператор корректно завершил диалог; обрыв отличается от возможности попрощаться.",
+      "weight": 0,
+      "type": "yes_no",
+      "na_allowed": true,
+      "na_rule": "N/A когда диалог оборвался и попрощаться было невозможно."
+    }
+  ]
+}

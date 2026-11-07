@@ -1,0 +1,34 @@
+{
+  "data": {
+    "records": [
+      {
+        "conversation_id": "example-001",
+        "channel": "agent chat",
+        "language": "RU",
+        "transcript": [
+          {"turn_id": 0, "timestamp": "00:00", "speaker": "bot", "text": "Здравствуйте! Вы обратились в поддержку Freedom Broker. Опишите ваш вопрос."},
+          {"turn_id": 1, "timestamp": "00:02", "speaker": "client", "text": "Здравствуйте, не вижу поступление денег на счёт."},
+          {"turn_id": 2, "timestamp": "00:03", "speaker": "operator", "text": "Здравствуйте, меня зовут Алия."},
+          {"turn_id": 3, "timestamp": "00:03", "speaker": "operator", "text": "Подскажите, пожалуйста, когда и каким способом вы пополняли счёт?"},
+          {"turn_id": 4, "timestamp": "00:05", "speaker": "client", "text": "Вчера вечером, с карты."},
+          {"turn_id": 5, "timestamp": "00:06", "speaker": "operator", "text": "Пополнение с карты зачисляется до одного рабочего дня. Если до 18:00 средства не поступят, напишите нам, мы проверим платёж."},
+          {"turn_id": 6, "timestamp": "00:07", "speaker": "client", "text": "Понял, спасибо."},
+          {"turn_id": 7, "timestamp": "00:07", "speaker": "operator", "text": "Пожалуйста! Хорошего дня."}
+        ],
+        "audio_url": null
+      },
+      {
+        "conversation_id": "example-002",
+        "channel": "call",
+        "language": "EN",
+        "transcript": [
+          {"turn_id": 0, "timestamp": "2026-11-07T10:00:00Z", "speaker": "operator", "text": "Hello, this is Daniyar from Freedom Broker, how can I help you?"},
+          {"turn_id": 1, "timestamp": "2026-11-07T10:00:06Z", "speaker": "client", "text": "Hi, I want to know the commission for US stocks."},
+          {"turn_id": 2, "timestamp": "2026-11-07T10:00:12Z", "speaker": "operator", "text": "Sure. The commission depends on your tariff plan; the standard plan is listed on our website under Tariffs."},
+          {"turn_id": 3, "timestamp": "2026-11-07T10:00:30Z", "speaker": "client", "text": "Okay, thanks, bye."}
+        ],
+        "audio_url": "https://example.invalid/recordings/example-002.mp3"
+      }
+    ]
+  }
+}
