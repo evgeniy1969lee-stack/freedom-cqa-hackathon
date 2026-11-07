@@ -6,6 +6,9 @@ Status: in development.
 
 Team roles and implementation prompts are in [docs/team-plan.md](docs/team-plan.md).
 
+The [submission guide](docs/submission.md) covers the organizer's JSON 1.0
+format and the commands for generating DEV and PROD files.
+
 The project must keep credentials, signed dataset links, recordings, transcripts and local databases outside the public repository.
 
 ## ML-1 baseline
