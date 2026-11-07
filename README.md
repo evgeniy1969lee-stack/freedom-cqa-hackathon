@@ -1,2 +1,9 @@
-# freedom-cqa-hackathon
-Conversation Quality Analytics hackathon prototype
+# Freedom CQA Hackathon
+
+Prototype for evaluating customer-support conversations against a configurable quality checklist.
+
+Status: planning. The application has not yet been implemented.
+
+Team roles and implementation prompts are in [docs/team-plan.md](docs/team-plan.md).
+
+The project must keep credentials, signed dataset links, recordings, transcripts and local databases outside the public repository.
