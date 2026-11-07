@@ -94,8 +94,9 @@ export async function cardView(root, id, params, ctx) {
 
   const recording = recordingURL(conv.audio_url)
   const audio = recording && h('div', { class: 'audio' },
-    h('audio', { controls: true, preload: 'none', src: recording, 'aria-label': 'Запись диалога' }),
-    h('a', { href: recording, target: '_blank', rel: 'noopener noreferrer' }, 'Открыть запись'))
+    h('audio', { controls: true, preload: 'none', src: recording, 'aria-label': 'Запись диалога',
+      onerror: e => { e.currentTarget.hidden = true } }),
+    h('a', { href: recording, target: '_blank', rel: 'noopener noreferrer' }, 'Открыть запись в плеере'))
 
   const right = h('section', { class: 'pane result', 'aria-labelledby': 'result-heading' },
     h('h2', { id: 'result-heading' }, 'Результат оценки'))

@@ -8,7 +8,7 @@
   --control-line: #bfcbbf;
   --forest: #10231a;
   --green: #17613f;
-  --lime: #c5f25a;
+  --lime: #9acd32;
   --lime-soft: #eef8d9;
   --warn: #764600;
   --warn-soft: #fff1d7;
@@ -175,12 +175,12 @@ main:focus { outline: none; }
   transition: transform 350ms var(--curve), background-color 160ms, border-color 160ms;
 }
 .btn.small { min-height: 33px; font-size: .84rem; }
-.btn.primary { border-color: #a0c341; background: var(--lime); color: #14230d; }
+.btn.primary { border-color: #7da72a; background: var(--lime); color: #14230d; }
 .btn.primary::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; border: 2px solid #436d18; opacity: 0; pointer-events: none; }
 .btn.primary:not(:disabled):hover::after { animation: button-wave 580ms var(--curve) both; }
 .hero .btn.primary::after { border-color: #d5fc85; }
 .btn:not(:disabled):hover { z-index: 1; transform: translateY(-3px) scale(1.045); border-color: #839d80; background: #f3f9ee; }
-.btn.primary:not(:disabled):hover { background: #d5fc85; border-color: #a0c341; }
+.btn.primary:not(:disabled):hover { background: #addc50; border-color: #7da72a; }
 .btn:not(:disabled):hover .icon { transform: translateY(-3px) rotate(-9deg) scale(1.12); }
 .btn:not(:disabled):active { transform: translateY(2px) scale(.94); transition-duration: 90ms; }
 .btn.danger { color: var(--danger); }

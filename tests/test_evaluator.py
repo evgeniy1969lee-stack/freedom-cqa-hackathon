@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from ml.evaluator import EvaluationError, evaluate
+from ml.evaluator import ContextLimit, EvaluationError, evaluate
 
 
 def completed(scores, **stats):
@@ -46,6 +46,31 @@ class EvaluatorTests(unittest.TestCase):
 
         result = evaluate(self.dialogue, self.rubric, chat=reply)
         self.assertEqual(result["criteria"][0]["evidence"]["turn_ids"], [1])
+
+    def test_long_transcript_uses_larger_context_without_dropping_turns(self):
+        turn = {"timestamp": "2026-11-07T12:00:00+05:00", "speaker": "operator", "text": "Ответ"}
+        dialogue = {**self.dialogue, "channel": "voice call", "transcript": [turn] * 115}
+
+        def reply(payload):
+            content = json.loads(payload["messages"][-1]["content"])
+            self.assertEqual(len(content["transcript"]), 115)
+            self.assertEqual(content["transcript"][-1]["turn_id"], 114)
+            self.assertEqual(payload["options"]["num_ctx"], 12288)
+            self.assertFalse(payload["truncate"])
+            return completed({"new-rule": self.item})
+
+        evaluate(dialogue, self.rubric, chat=reply)
+
+    def test_retries_context_overflow_only_for_automatic_context(self):
+        def reply(payload):
+            if payload["options"]["num_ctx"] == 3072:
+                raise ContextLimit("Context too small")
+            return completed({"new-rule": self.item})
+
+        result = evaluate(self.dialogue, self.rubric, chat=reply)
+        self.assertEqual(result["metrics"]["context_tokens"], 12288)
+        with self.assertRaises(ContextLimit):
+            evaluate(self.dialogue, self.rubric, num_ctx=3072, chat=reply)
 
     def test_numeric_string_conversion(self):
         numeric_rubric = {

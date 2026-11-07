@@ -39,12 +39,10 @@ of the shorter response.
 
 The compact variant fixed the RU closing answer but still missed the greeting
 and consultation. On EN it missed late identity verification and the offer of
-a private paid consultation. These two errors block promotion. The deployed
-evaluator keeps the baseline prompt. The pilot covers three synthetic cases
-and does not establish expected accuracy on DEV or the organizers' control
-set.
+a private paid consultation. The baseline stayed active after that pilot.
+The table records that historical three-case experiment. The current
+backend uses the prompt version declared in `ml/evaluator.py`.
 
-Next, use two independent annotations of the same DEV chats, settle differences
-against the official rubric, and repeat the comparison. Reserve separate
-dialogues for the final check. Align the backend seed checklist and HTTP
-contract before the first end-to-end evaluation.
+For a new accuracy check, reconcile independent annotations against the
+official rubric and compare the active evaluator on those dialogues.
+Reserve separate dialogues for the final check.

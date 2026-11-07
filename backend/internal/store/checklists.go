@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/homepunks/datathong/internal/domain"
@@ -96,16 +97,30 @@ func (s *Store) EnsureSeedChecklist(ctx context.Context, seed domain.Checklist) 
 	if err != nil {
 		return err
 	}
-	// Add a new version when upgrading the original draft. Existing jobs and
-	// evaluations retain their checklist snapshots.
+	previousSeed := seed
+	previousSeed.Criteria = slices.Clone(seed.Criteria)
+	for i := range previousSeed.Criteria {
+		previousSeed.Criteria[i].Section = ""
+	}
+	previousBody, err := json.Marshal(previousSeed)
+	if err != nil {
+		return err
+	}
+	// Upgrade the original draft or the exact stock checklist before it had
+	// sections. Existing jobs, evaluations and custom checklists retain their versions.
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO checklists (version, created_at, note, criteria_json)
 		SELECT previous + 1, ?, ?, json_set(?, '$.version', previous + 1)
 		FROM (SELECT COALESCE(MAX(version), 0) AS previous FROM checklists)
 		WHERE previous = 0 OR EXISTS (
 			SELECT 1 FROM checklists
-			WHERE version = previous AND note = ? AND json_extract(criteria_json, '$.draft') = 1
-		)`, seed.CreatedAt.Format(time.RFC3339Nano), seed.Note, string(body), legacyDraftNote)
+			WHERE version = previous AND (
+				(note = ? AND json_extract(criteria_json, '$.draft') = 1) OR
+				(? <> ? AND json_remove(criteria_json, '$.version', '$.created_at') =
+					json_remove(?, '$.version', '$.created_at'))
+			)
+		)`, seed.CreatedAt.Format(time.RFC3339Nano), seed.Note, string(body), legacyDraftNote,
+		string(body), string(previousBody), string(previousBody))
 	if err != nil {
 		return fmt.Errorf("ensure seed checklist: %w", err)
 	}
