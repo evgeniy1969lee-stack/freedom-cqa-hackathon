@@ -28,6 +28,32 @@ type HTTP struct {
 	Client *http.Client
 }
 
+// Readiness checks the bridge without submitting an evaluation.
+func (h HTTP) Readiness(ctx context.Context) (ready bool, model string) {
+	endpoint, err := url.Parse(h.URL)
+	if err != nil {
+		return false, ""
+	}
+	endpoint = endpoint.ResolveReference(&url.URL{Path: "health"})
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return false, ""
+	}
+	resp, err := h.Client.Do(req)
+	if err != nil {
+		return false, ""
+	}
+	defer resp.Body.Close()
+	var status struct {
+		Ready bool   `json:"ready"`
+		Model string `json:"model"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&status) != nil {
+		return false, ""
+	}
+	return resp.StatusCode == http.StatusOK && status.Ready, status.Model
+}
+
 func (h HTTP) Evaluate(ctx context.Context, req Request) (domain.MLResponse, []byte, error) {
 	body, err := json.Marshal(req)
 	if err != nil {

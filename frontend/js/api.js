@@ -43,6 +43,7 @@ export const api = {
   evaluate: (id, body) => req('POST', `conversations/${e(id)}/evaluate`, body),
   evaluateBatch: body => req('POST', 'evaluate/batch', body),
   jobs: params => req('GET', 'jobs' + qs(params)),
+  job: id => req('GET', `jobs/${id}`),
   retry: id => req('POST', `jobs/${id}/retry`),
   importJSON: text => req('POST', 'import', text),
   importDev: groupId => req('POST', 'import/dev' + qs({ group_id: groupId })),

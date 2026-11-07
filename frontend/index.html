@@ -3,20 +3,46 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#10231a">
 <title>Freedom CQA</title>
+<link rel="icon" type="image/svg+xml" href="assets/mark.svg">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<a class="skip" href="#main" onclick="event.preventDefault();document.getElementById('main').focus()">К содержимому</a>
+<a class="skip" href="#main">К содержимому</a>
 <div class="shell">
-  <nav class="nav" aria-label="Разделы">
-    <div class="brand">CQA<small>Контроль качества диалогов</small></div>
-    <a href="#/" data-nav="list">Диалоги</a>
-    <a href="#/checklists" data-nav="checklists">Чек-лист</a>
-    <a href="#/appeals" data-nav="appeals">Апелляции</a>
-    <div class="nav-foot" id="health" aria-live="polite"></div>
-  </nav>
-  <main id="main" tabindex="-1"></main>
+  <aside class="rail">
+    <a class="brand" href="#/" aria-label="Freedom CQA — диалоги">
+      <svg class="brand-mark" viewBox="0 0 42 42" aria-hidden="true">
+        <rect width="42" height="42" rx="12" fill="currentColor"/>
+        <path d="M9 22h5l3.5-8 5 15 3.5-9h7" fill="none" stroke="#10231a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span><strong>Freedom <b>CQA</b></strong><small>Контроль качества</small></span>
+    </a>
+    <nav class="nav" aria-label="Разделы">
+      <p>Рабочее пространство</p>
+      <a href="#/" data-nav="list">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5zM8 9h8M8 12h5"/></svg>Диалоги
+      </a>
+      <a href="#/checklists" data-nav="checklists">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H5v15h14V5h-4M9 4h6v3H9zM8 13l2 2 5-5"/></svg>Чек-лист
+      </a>
+      <a href="#/appeals" data-nav="appeals">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v16m-5 2h10M4 7h16M6 7l-3 7h6L6 7zm12 0-3 7h6l-3-7z"/></svg>Апелляции
+      </a>
+    </nav>
+    <div class="rail-foot">
+      <span class="rail-dot"></span>
+      <div><strong>Контур оценки</strong><small id="rail-status">Проверяем сервер…</small></div>
+    </div>
+  </aside>
+  <div class="workspace">
+    <header class="workspace-bar">
+      <div class="workspace-path"><span>Служба поддержки</span><span aria-hidden="true">/</span><strong id="section-name">Диалоги</strong></div>
+      <div class="engine" id="health" role="status">Проверяем ML…</div>
+    </header>
+    <main id="main" tabindex="-1"></main>
+  </div>
 </div>
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 <script type="module" src="js/app.js"></script>

@@ -11,6 +11,24 @@ import (
 	"github.com/homepunks/datathong/internal/domain"
 )
 
+func TestHTTPReadiness(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/bridge/health" || r.URL.RawQuery != "" {
+			t.Errorf("unexpected probe: %s %s", r.Method, r.URL)
+		}
+		json.NewEncoder(w).Encode(map[string]any{"ready": true, "model": "test-model"})
+	}))
+	h := HTTP{URL: srv.URL + "/bridge/evaluate?key=synthetic", Client: srv.Client()}
+	ready, model := h.Readiness(context.Background())
+	if !ready || model != "test-model" {
+		t.Fatalf("readiness: %t %q", ready, model)
+	}
+	srv.Close()
+	if ready, _ := h.Readiness(context.Background()); ready {
+		t.Fatal("offline bridge reported as ready")
+	}
+}
+
 func conv(n int) domain.Conversation {
 	c := domain.Conversation{ID: "c"}
 	for i := 0; i < n; i++ {

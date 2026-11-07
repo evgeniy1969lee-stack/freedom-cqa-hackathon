@@ -54,6 +54,18 @@ Set-Location backend
 go run ./cmd/api -addr 127.0.0.1:8080 -ml-url http://127.0.0.1:8091/evaluate -workers 1
 ~~~
 
+Open `http://127.0.0.1:8080/`. Go serves the frontend and API from one
+origin. The header shows when the Python bridge responds and the selected
+model is installed in Ollama. The test stub has its own status and
+results banner.
+
+To check the browser flow, import `backend/testdata/example_conversation.json`
+with **Импорт JSON**, open the imported dialogue, and click **Оценить**.
+Wait for the job to finish and click a criterion's evidence link to see the
+referenced turns. The browser creates the job and then polls its status.
+The backend sends the transcript and selected checklist to the bridge.
+Ollama returns the criterion answers, and Go calculates and stores the score.
+
 To import and evaluate the synthetic example from the repository root:
 
 ~~~powershell
@@ -67,7 +79,8 @@ Once the job has completed, request its `evaluation_id` from
 `GET /api/evaluations/{id}`. The Go queue sends the transcript and the
 selected checklist version to Python. Go calculates the weighted total
 and stores the separate gross-error flag. The service accepts one request
-at a time on the loopback interface. Model failures return an error to
+at a time on the loopback interface and responds to health probes during
+inference. Model failures return an error to
 the queue for its normal retry handling.
 
 Fresh databases start with the checklist from the organizer PDF. An existing
@@ -75,3 +88,10 @@ database whose latest checklist is the original draft gets the official
 checklist as a new version. Earlier jobs and evaluations keep their original
 snapshots. To re-evaluate a dialogue with corrected weights, enqueue it using
 the new checklist version.
+
+Reimporting a changed transcript keeps earlier evaluations in history.
+Historical results are labelled and the UI hides their evidence links to
+the current text. Default exports include current transcript versions.
+Use `GET /api/export?all=true` for history and filter on `input_hash` or
+`historical` to distinguish revisions. JSON preserves text values as
+stored, while CSV prefixes formula-like text for spreadsheet use.

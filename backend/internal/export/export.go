@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"io"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/homepunks/datathong/internal/domain"
 )
@@ -43,6 +45,8 @@ type Record struct {
 	Appeals          []domain.Appeal   `json:"appeals"`
 	CreatedAt        time.Time         `json:"created_at"`
 	RevisedAt        *time.Time        `json:"revised_at"`
+	InputHash        string            `json:"input_hash"`
+	Historical       bool              `json:"historical"`
 }
 
 type Document struct {
@@ -62,6 +66,10 @@ func Build(conv domain.Conversation, ev domain.Evaluation) Record {
 		Model: ev.Model, PromptVersion: ev.PromptVersion, Total: ev.Total, W: ev.W,
 		FinalTotal: ev.FinalTotal, FinalW: ev.FinalW, GrossError: ev.GrossError,
 		Appeals: ev.Appeals, CreatedAt: ev.CreatedAt, RevisedAt: ev.RevisedAt,
+		InputHash: ev.InputHash, Historical: ev.InputHash != conv.SourceHash,
+	}
+	if r.Historical {
+		r.Channel, r.Language, r.AudioURL = "", "", nil
 	}
 	for _, it := range ev.Items {
 		c := names[it.CriterionID]
@@ -84,6 +92,7 @@ var csvHeader = []string{
 	"conversation_id", "channel", "language", "evaluation_id", "checklist_version", "model", "prompt_version",
 	"total", "final_total", "gross_error", "gross_error_category",
 	"criterion_id", "criterion_name", "answer", "final_answer", "weight", "applicable", "q", "points", "evidence", "reason",
+	"input_hash", "historical",
 }
 
 func WriteCSV(w io.Writer, records []Record) error {
@@ -95,9 +104,10 @@ func WriteCSV(w io.Writer, records []Record) error {
 		for _, it := range r.Items {
 			ev, _ := json.Marshal(it.Evidence)
 			row := []string{
-				r.ConversationID, r.Channel, r.Language, strconv.FormatInt(r.EvaluationID, 10), strconv.Itoa(r.ChecklistVersion), r.Model, r.PromptVersion,
-				num(r.Total), num(r.FinalTotal), strconv.FormatBool(r.GrossError.Flag), r.GrossError.Category,
-				it.CriterionID, it.Name, it.Answer, str(it.FinalAnswer), fmtF(it.Weight), strconv.FormatBool(it.Applicable), fmtF(it.Q), fmtF(it.Points), string(ev), it.Reason,
+				csvText(r.ConversationID), csvText(r.Channel), csvText(r.Language), strconv.FormatInt(r.EvaluationID, 10), strconv.Itoa(r.ChecklistVersion), csvText(r.Model), csvText(r.PromptVersion),
+				num(r.Total), num(r.FinalTotal), strconv.FormatBool(r.GrossError.Flag), csvText(r.GrossError.Category),
+				csvText(it.CriterionID), csvText(it.Name), it.Answer, str(it.FinalAnswer), fmtF(it.Weight), strconv.FormatBool(it.Applicable), fmtF(it.Q), fmtF(it.Points), string(ev), csvText(it.Reason),
+				r.InputHash, strconv.FormatBool(r.Historical),
 			}
 			if err := cw.Write(row); err != nil {
 				return err
@@ -106,6 +116,15 @@ func WriteCSV(w io.Writer, records []Record) error {
 	}
 	cw.Flush()
 	return cw.Error()
+}
+
+func csvText(value string) string {
+	first, _ := utf8.DecodeRuneInString(value)
+	meaningful, _ := utf8.DecodeRuneInString(strings.TrimSpace(value))
+	if strings.ContainsRune("\t\r\n", first) || strings.ContainsRune("=+-@＝＋－＠", meaningful) {
+		return "'" + value
+	}
+	return value
 }
 
 func num(p *float64) string {

@@ -70,12 +70,15 @@ func (s *Store) ListConversations(ctx context.Context) ([]domain.ConversationSum
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT c.id, c.channel, c.language, c.audio_url, c.source_hash, c.imported_at, c.updated_at,
 		       (SELECT COUNT(*) FROM turns t WHERE t.conversation_id = c.id),
-		       (SELECT j.id FROM jobs j WHERE j.conversation_id = c.id ORDER BY j.id DESC LIMIT 1),
-		       (SELECT j.status FROM jobs j WHERE j.conversation_id = c.id ORDER BY j.id DESC LIMIT 1),
-		       (SELECT e.id FROM evaluations e WHERE e.conversation_id = c.id ORDER BY e.id DESC LIMIT 1),
-		       (SELECT e.total FROM evaluations e WHERE e.conversation_id = c.id ORDER BY e.id DESC LIMIT 1),
-		       (SELECT e.gross_error FROM evaluations e WHERE e.conversation_id = c.id ORDER BY e.id DESC LIMIT 1)
-		FROM conversations c ORDER BY c.updated_at DESC, c.id`)
+		       j.id, j.status, e.id, CASE WHEN e.revised_at IS NULL THEN e.total ELSE e.final_total END, e.gross_error
+		FROM conversations c
+		LEFT JOIN jobs j ON j.id = (
+		    SELECT j2.id FROM jobs j2 WHERE j2.conversation_id = c.id AND j2.input_hash = c.source_hash
+		    ORDER BY j2.id DESC LIMIT 1)
+		LEFT JOIN evaluations e ON e.id = (
+		    SELECT e2.id FROM evaluations e2 WHERE e2.conversation_id = c.id AND e2.input_hash = c.source_hash
+		    ORDER BY e2.id DESC LIMIT 1)
+		ORDER BY c.updated_at DESC, c.id`)
 	if err != nil {
 		return nil, err
 	}
@@ -112,30 +115,33 @@ func (s *Store) ListConversations(ctx context.Context) ([]domain.ConversationSum
 
 func (s *Store) GetConversation(ctx context.Context, id string) (domain.Conversation, error) {
 	var c domain.Conversation
-	var imported, updated string
-	err := s.db.QueryRowContext(ctx, `SELECT id, channel, language, audio_url, source_hash, imported_at, updated_at FROM conversations WHERE id = ?`, id).
-		Scan(&c.ID, &c.Channel, &c.Language, &c.AudioURL, &c.SourceHash, &imported, &updated)
-	if err == sql.ErrNoRows {
-		return c, ErrNotFound
-	}
-	if err != nil {
-		return c, err
-	}
-	c.ImportedAt, c.UpdatedAt = parseTime(imported), parseTime(updated)
-	rows, err := s.db.QueryContext(ctx, `SELECT turn_id, timestamp, speaker, text FROM turns WHERE conversation_id = ? ORDER BY turn_id`, id)
-	if err != nil {
-		return c, err
-	}
-	defer rows.Close()
-	c.Turns = []domain.Turn{}
-	for rows.Next() {
-		var t domain.Turn
-		if err := rows.Scan(&t.TurnID, &t.Timestamp, &t.Speaker, &t.Text); err != nil {
-			return c, err
+	err := s.tx(ctx, func(tx *sql.Tx) error {
+		var imported, updated string
+		err := tx.QueryRowContext(ctx, `SELECT id, channel, language, audio_url, source_hash, imported_at, updated_at FROM conversations WHERE id = ?`, id).
+			Scan(&c.ID, &c.Channel, &c.Language, &c.AudioURL, &c.SourceHash, &imported, &updated)
+		if err == sql.ErrNoRows {
+			return ErrNotFound
 		}
-		c.Turns = append(c.Turns, t)
-	}
-	return c, rows.Err()
+		if err != nil {
+			return err
+		}
+		c.ImportedAt, c.UpdatedAt = parseTime(imported), parseTime(updated)
+		rows, err := tx.QueryContext(ctx, `SELECT turn_id, timestamp, speaker, text FROM turns WHERE conversation_id = ? ORDER BY turn_id`, id)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		c.Turns = []domain.Turn{}
+		for rows.Next() {
+			var t domain.Turn
+			if err := rows.Scan(&t.TurnID, &t.Timestamp, &t.Speaker, &t.Text); err != nil {
+				return err
+			}
+			c.Turns = append(c.Turns, t)
+		}
+		return rows.Err()
+	})
+	return c, err
 }
 
 func parseTime(s string) time.Time {

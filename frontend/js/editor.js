@@ -1,5 +1,5 @@
 import { api } from './api.js'
-import { h, toast, fail, num, when, loading, errorBox, saveVersion } from './ui.js'
+import { h, icon, toast, fail, num, when, loading, errorBox, saveVersion } from './ui.js'
 
 const clone = v => JSON.parse(JSON.stringify(v))
 
@@ -24,6 +24,7 @@ export async function editorView(root, _arg, params, ctx) {
   const criteria = h('ol', { class: 'editor-list' })
   const weightSum = h('span', { class: 'strong' })
   const after = h('div')
+  const saveButton = h('button', { class: 'btn primary', onclick: save }, 'Сохранить как новую версию')
 
   const pick = h('select', { id: 'base-version', onchange: () => ctx.go(`#/checklists?v=${pick.value}`) },
     list.map(c => h('option', { value: String(c.version) }, `v${c.version} · ${when(c.created_at)} · ${c.criteria_count} крит.`)))
@@ -48,7 +49,7 @@ export async function editorView(root, _arg, params, ctx) {
     criteria,
     h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => { cl.criteria.push(blank(nextId())); draw(true) } }, '+ Добавить критерий')),
     errors,
-    h('div', { class: 'savebar' }, h('button', { class: 'btn primary', onclick: save }, 'Сохранить как новую версию'), h('span', { class: 'muted' }, `Сейчас последняя: v${list[0].version}`)),
+    h('div', { class: 'savebar' }, saveButton, h('span', { class: 'muted' }, `Основа: v${base.version}`)),
     after)
 
   function nextId() {
@@ -81,25 +82,30 @@ export async function editorView(root, _arg, params, ctx) {
   }
 
   function draw(focusLast) {
+    const focused = criteria.contains(document.activeElement) ? document.activeElement.id : ''
     weightSum.textContent = num(cl.criteria.reduce((a, c) => a + (Number(c.weight) || 0), 0))
     criteria.replaceChildren(...cl.criteria.map((c, i) => card(c, i)))
     if (focusLast) criteria.lastElementChild.querySelector('input').focus()
+    else if (focused) document.getElementById(focused)?.focus({ preventScroll: true })
   }
 
   function card(c, i) {
     const k = c._key
+    const title = () => `${c.criterion_id || '?'} ${c.name || 'Новый критерий'}`
+    const heading = h('strong', null, title())
     const mark = h('span', null, badge(c))
     const touch = () => {
+      heading.textContent = title()
       mark.replaceChildren(badge(c))
       weightSum.textContent = num(cl.criteria.reduce((a, x) => a + (Number(x.weight) || 0), 0))
     }
     const field = (label, input, cls = '') => h('div', { class: `field ${cls}` }, h('label', { for: `${input.id}` }, label), input)
-    const text = (prop, attrs = {}) => h('input', { id: `${prop}-${k}`, type: 'text', value: c[prop] || '', oninput: e => { c[prop] = e.target.value; touch() }, ...attrs })
+    const text = prop => h('input', { id: `${prop}-${k}`, type: 'text', value: c[prop] || '', oninput: e => { c[prop] = e.target.value; touch() } })
     const steps = c.type === 'scale' && h('fieldset', { class: 'steps' }, h('legend', null, 'Ступени шкалы'),
       c.steps.map((s, j) => h('div', { class: 'step-row' },
         h('input', { type: 'number', min: 0, step: 1, value: String(s.value), 'aria-label': `Значение ступени ${j + 1}`, oninput: e => { s.value = parseInt(e.target.value, 10); touch() } }),
         h('input', { type: 'text', value: s.label || '', placeholder: 'Описание ступени', 'aria-label': `Описание ступени ${j + 1}`, oninput: e => { s.label = e.target.value; touch() } }),
-        h('button', { class: 'btn small', type: 'button', 'aria-label': `Удалить ступень ${j + 1}`, onclick: () => { c.steps.splice(j, 1); draw() } }, '✕'))),
+        h('button', { class: 'btn small', type: 'button', 'aria-label': `Удалить ступень ${j + 1}`, onclick: () => { c.steps.splice(j, 1); draw() } }, icon('close')))),
       h('button', { class: 'btn small', type: 'button', onclick: () => {
         const max = c.steps.length ? Math.max(...c.steps.map(s => s.value || 0)) : -1
         c.steps.push({ value: max + 1, label: '' })
@@ -107,7 +113,7 @@ export async function editorView(root, _arg, params, ctx) {
       } }, '+ Ступень'))
     return h('li', { class: 'editor-card' },
       h('div', { class: 'editor-card-head' },
-        h('strong', null, `${c.criterion_id || '?'} ${c.name || 'Новый критерий'}`), mark,
+        heading, mark,
         h('div', { class: 'row' },
           h('button', { class: 'btn small', type: 'button', disabled: i === 0, 'aria-label': 'Выше', onclick: () => { cl.criteria.splice(i - 1, 0, cl.criteria.splice(i, 1)[0]); draw() } }, '↑'),
           h('button', { class: 'btn small', type: 'button', disabled: i === cl.criteria.length - 1, 'aria-label': 'Ниже', onclick: () => { cl.criteria.splice(i + 1, 0, cl.criteria.splice(i, 1)[0]); draw() } }, '↓'),
@@ -121,7 +127,7 @@ export async function editorView(root, _arg, params, ctx) {
           } }, 'Заменить'),
           h('button', { class: 'btn small danger', type: 'button', onclick: () => { cl.criteria.splice(i, 1); draw() } }, 'Удалить'))),
       h('div', { class: 'form-grid' },
-        field('ID', text('criterion_id', { onchange: () => draw() }), 'narrow'),
+        field('ID', text('criterion_id'), 'narrow'),
         field('Название', text('name')),
         field('Раздел', text('section')),
         field('Вес', h('input', { id: `weight-${k}`, type: 'number', min: 0, step: 'any', value: String(c.weight ?? 0), oninput: e => { c.weight = e.target.value === '' ? 0 : Number(e.target.value); touch() } }), 'narrow'),
@@ -133,7 +139,7 @@ export async function editorView(root, _arg, params, ctx) {
         field('Формулировка', h('textarea', { id: `description-${k}`, rows: 2, value: c.description || '', oninput: e => { c.description = e.target.value; touch() } }), 'wide'),
         steps && h('div', { class: 'wide' }, steps),
         h('div', { class: 'field' }, h('span', { class: 'label' }, 'N/A'),
-          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!c.na_allowed, onchange: e => { c.na_allowed = e.target.checked; draw() } }), 'Разрешён ответ N/A')),
+          h('label', { class: 'check' }, h('input', { id: `na-allowed-${k}`, type: 'checkbox', checked: !!c.na_allowed, onchange: e => { c.na_allowed = e.target.checked; draw() } }), 'Разрешён ответ N/A')),
         c.na_allowed && field('Условие N/A', h('textarea', { id: `na_rule-${k}`, rows: 2, value: c.na_rule || '', oninput: e => { c.na_rule = e.target.value; touch() } }), 'wide')))
   }
 
@@ -184,13 +190,16 @@ export async function editorView(root, _arg, params, ctx) {
     const errs = validate()
     showErrors(errs)
     if (errs.length) return errors.scrollIntoView({ block: 'center' })
+    saveButton.disabled = true
     try {
       saved = await api.saveChecklist(payload())
       saveVersion(saved.version)
       toast(`Сохранена версия v${saved.version}`)
-      applyPanel()
+      await applyPanel()
     } catch (err) {
       showErrors([err.message])
+    } finally {
+      saveButton.disabled = false
     }
   }
 

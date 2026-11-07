@@ -17,6 +17,30 @@ import (
 	"github.com/homepunks/datathong/internal/store"
 )
 
+func TestSameOriginWrites(t *testing.T) {
+	h := newTestServer(t)
+	for _, origin := range []string{"https://other.example", "null"} {
+		req := httptest.NewRequest("POST", "http://localhost/api/import", nil)
+		req.Header.Set("Origin", origin)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden || rec.Header().Get("Access-Control-Allow-Origin") != "" {
+			t.Fatalf("unexpected cross-origin response: %d %v", rec.Code, rec.Header())
+		}
+	}
+	body, err := os.ReadFile("../../testdata/example_conversation.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "http://localhost/api/import", bytes.NewReader(body))
+	req.Header.Set("Origin", "http://localhost")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("same-origin import failed: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
 	ctx := context.Background()

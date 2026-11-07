@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/homepunks/datathong/internal/domain"
 	"github.com/homepunks/datathong/internal/export"
 )
 
@@ -65,6 +66,29 @@ func TestExport(t *testing.T) {
 	}
 	if len(rows) != 1+2*7 || rows[0][0] != "conversation_id" || rows[1][11] != "01" {
 		t.Fatalf("csv rows: %d first=%v", len(rows), rows[1])
+	}
+
+	revised := []byte(`{"conversation_id":"example-001","language":"RU","channel":"chat","transcript":[{"speaker":"client","timestamp":"00:00","text":"New transcript"}]}`)
+	if code := do(t, h, "POST", "/api/import", revised, nil); code != 200 {
+		t.Fatalf("reimport: %d", code)
+	}
+	var summaries []domain.ConversationSummary
+	do(t, h, "GET", "/api/conversations", nil, &summaries)
+	for _, c := range summaries {
+		if c.ID == "example-001" && (c.LatestEvaluationID != nil || c.LatestJobID != nil || c.LatestTotal != nil) {
+			t.Fatalf("historical result is current after reimport: %+v", c)
+		}
+	}
+	if code := do(t, h, "GET", "/api/export", nil, &doc); code != 200 || doc.Count != 1 || doc.Records[0].ConversationID != "example-002" {
+		t.Fatalf("export included an old transcript: %d %+v", code, doc)
+	}
+	if code := do(t, h, "GET", "/api/export?all=true&conversation_id=example-001", nil, &doc); code != 200 || doc.Count != 2 {
+		t.Fatalf("historical export: %d %+v", code, doc)
+	}
+	for _, r := range doc.Records {
+		if !r.Historical || r.InputHash == "" || r.Language != "" || r.AudioURL != nil {
+			t.Fatalf("history mixed with current transcript metadata: %+v", r)
+		}
 	}
 }
 

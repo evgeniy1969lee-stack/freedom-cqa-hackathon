@@ -23,6 +23,7 @@ const maxBody = 64 << 20
 type Server struct {
 	store       *store.Store
 	mlName      string
+	mlReadiness func(context.Context) (bool, string)
 	worker      *queue.Worker
 	maxAttempts int
 	devURL      string
@@ -32,6 +33,7 @@ type Server struct {
 
 type Options struct {
 	MLName      string
+	MLReadiness func(context.Context) (bool, string)
 	DevURL      string
 	StaticDir   string
 	Worker      *queue.Worker
@@ -42,7 +44,7 @@ func New(st *store.Store, opt Options, log *slog.Logger) http.Handler {
 	if opt.MaxAttempts < 1 {
 		opt.MaxAttempts = 1
 	}
-	s := &Server{store: st, mlName: opt.MLName, worker: opt.Worker, maxAttempts: opt.MaxAttempts, devURL: opt.DevURL, client: &http.Client{Timeout: 60 * time.Second}, log: log}
+	s := &Server{store: st, mlName: opt.MLName, mlReadiness: opt.MLReadiness, worker: opt.Worker, maxAttempts: opt.MaxAttempts, devURL: opt.DevURL, client: &http.Client{Timeout: 60 * time.Second}, log: log}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("POST /api/import", s.importBody)
@@ -67,7 +69,7 @@ func New(st *store.Store, opt Options, log *slog.Logger) http.Handler {
 	if opt.StaticDir != "" {
 		mux.Handle("/", http.FileServer(http.Dir(opt.StaticDir)))
 	}
-	return cors(logRequests(log, mux))
+	return logRequests(log, sameOriginWrites(mux))
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
@@ -76,8 +78,15 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	ready, model := false, ""
+	if s.mlReadiness != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		ready, model = s.mlReadiness(ctx)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok": true, "time": time.Now().UTC(), "ml": s.mlName, "dev_url_configured": s.devURL != "", "jobs": counts,
+		"ok": true, "time": time.Now().UTC(), "ml": s.mlName, "ml_ready": ready, "ml_model": model,
+		"dev_url_configured": s.devURL != "", "jobs": counts,
 	})
 }
 
@@ -244,14 +253,16 @@ func stripURL(err error) string {
 	return err.Error()
 }
 
-func cors(next http.Handler) http.Handler {
+func sameOriginWrites(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
+		if r.Method == http.MethodPost {
+			raw := r.Header.Get("Origin")
+			origin, err := url.Parse(raw)
+			if r.Header.Get("Sec-Fetch-Site") == "cross-site" || (raw != "" &&
+				(err != nil || !strings.EqualFold(origin.Host, r.Host) || (origin.Scheme != "https" && origin.Scheme != "http"))) {
+				writeError(w, http.StatusForbidden, "cross-origin write forbidden")
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	})

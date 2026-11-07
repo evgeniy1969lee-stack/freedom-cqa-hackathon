@@ -18,6 +18,29 @@ export function put(el, ...kids) {
   return el
 }
 
+const icons = {
+  upload: 'M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4',
+  download: 'M12 4v12m-5-5 5 5 5-5M4 17v3h16v-3',
+  play: 'M8 5v14l11-7L8 5z',
+  search: 'M20 20l-4-4M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0z',
+  arrow: 'M5 12h14m-5-5 5 5-5 5',
+  signal: 'M3 13h4l3-7 4 12 3-5h4',
+  chat: 'M4 5h16v11H9l-5 4V5zM8 9h8M8 12h5',
+  close: 'M6 6l12 12M18 6L6 18',
+}
+
+export function icon(name) {
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(ns, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('class', 'icon')
+  svg.setAttribute('aria-hidden', 'true')
+  const path = document.createElementNS(ns, 'path')
+  path.setAttribute('d', icons[name])
+  svg.append(path)
+  return svg
+}
+
 function add(el, kids) {
   for (const k of kids) {
     if (k == null || k === false) continue
@@ -59,7 +82,7 @@ export function stamp(t) {
 
 export function chip(status) {
   if (!status) return h('span', { class: 'chip none' }, 'Не оценён')
-  return h('span', { class: `chip ${status}` }, statusText[status] || status)
+  return h('span', { class: `chip ${status}` }, h('span', { class: 'chip-dot', 'aria-hidden': 'true' }), statusText[status] || status)
 }
 
 const answerText = { YES: 'Да', NO: 'Нет', 'N/A': 'N/A' }
@@ -114,7 +137,7 @@ export function empty(title, text, ...actions) {
 }
 
 export function loading() {
-  return h('div', { class: 'loading', role: 'status' }, 'Загрузка…')
+  return h('div', { class: 'loading', role: 'status' }, icon('signal'), 'Загрузка…')
 }
 
 export function errorBox(err, retry) {

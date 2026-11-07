@@ -155,7 +155,11 @@ func (s *Store) ListEvaluations(ctx context.Context, conversationID string) ([]d
 }
 
 func (s *Store) ExportEvaluationIDs(ctx context.Context, conversationID string, checklistVersion int, all bool) ([]int64, error) {
-	q := `SELECT e.id FROM evaluations e WHERE 1=1`
+	q := `SELECT e.id FROM evaluations e`
+	if !all {
+		q += ` JOIN conversations c ON c.id = e.conversation_id AND c.source_hash = e.input_hash`
+	}
+	q += ` WHERE 1=1`
 	var args []any
 	if conversationID != "" {
 		q += ` AND e.conversation_id = ?`
@@ -166,7 +170,8 @@ func (s *Store) ExportEvaluationIDs(ctx context.Context, conversationID string, 
 		args = append(args, checklistVersion)
 	}
 	if !all {
-		q += ` AND e.id = (SELECT MAX(e2.id) FROM evaluations e2 WHERE e2.conversation_id = e.conversation_id`
+		q += ` AND e.id = (SELECT MAX(e2.id) FROM evaluations e2
+		                    WHERE e2.conversation_id = e.conversation_id AND e2.input_hash = e.input_hash`
 		if checklistVersion != 0 {
 			q += ` AND e2.checklist_version = ?`
 			args = append(args, checklistVersion)

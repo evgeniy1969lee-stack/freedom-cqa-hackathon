@@ -49,13 +49,15 @@ func run(log *slog.Logger) error {
 	}
 
 	var ev evaluator.Evaluator
+	var mlReadiness func(context.Context) (bool, string)
 	mlName := "http"
 	if cfg.MLURL == "" {
 		log.Warn("CQA_ML_URL is empty: using the stub evaluator; results are placeholders")
 		ev = evaluator.Stub{}
 		mlName = "stub"
 	} else {
-		ev = evaluator.HTTP{URL: cfg.MLURL, Client: &http.Client{}}
+		bridge := evaluator.HTTP{URL: cfg.MLURL, Client: &http.Client{}}
+		ev, mlReadiness = bridge, bridge.Readiness
 	}
 	worker := queue.New(st, ev, cfg.Workers, cfg.MLTimeout, log)
 	workerDone := make(chan struct{})
@@ -67,7 +69,8 @@ func run(log *slog.Logger) error {
 	srv := &http.Server{
 		Addr: cfg.Addr,
 		Handler: httpapi.New(st, httpapi.Options{
-			MLName: mlName, DevURL: cfg.DevURL, StaticDir: cfg.StaticDir, Worker: worker, MaxAttempts: cfg.MaxAttempts,
+			MLName: mlName, MLReadiness: mlReadiness, DevURL: cfg.DevURL,
+			StaticDir: cfg.StaticDir, Worker: worker, MaxAttempts: cfg.MaxAttempts,
 		}, log),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

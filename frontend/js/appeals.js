@@ -22,7 +22,7 @@ export async function appealsView(root, _arg, params, ctx) {
     const list = await api.appeals({ status })
     const { evals, crit } = await context(list.map(a => a.evaluation_id))
     if (!ctx.alive()) return
-    root.lastChild.replaceWith(list.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'grid' },
+    root.lastChild.replaceWith(list.length ? h('div', { class: 'table-wrap', role: 'region', tabindex: 0, 'aria-label': 'Таблица апелляций' }, h('table', { class: 'grid' },
       h('thead', null, h('tr', null, ['№', 'Диалог', 'Критерий', 'Исходный ответ', 'Решение', 'Итоговый ответ', 'Создана', 'Статус'].map(t => h('th', null, t)))),
       h('tbody', null, list.map(a => {
         const ev = evals.get(a.evaluation_id)
@@ -33,7 +33,7 @@ export async function appealsView(root, _arg, params, ctx) {
           h('td', null, `${c.criterion_id} ${c.name}`),
           h('td', null, answer(a.original_answer, c)),
           h('td', null, a.status === 'resolved' ? (a.decision === 'changed' ? 'Изменено' : 'Подтверждено') : '—'),
-          h('td', null, a.final_answer ? answer(a.final_answer, c) : a.status === 'resolved' ? answer(a.original_answer, c) : '—'),
+          h('td', null, a.status === 'resolved' ? answer(a.final_answer ?? a.original_answer, c) : '—'),
           h('td', null, when(a.created_at)),
           h('td', null, chip(a.status)))
       }))))
@@ -62,7 +62,8 @@ export async function appealView(root, id, _params, ctx) {
 
   function render() {
     const it = ev.items.find(x => x.criterion_id === a.criterion_id)
-    const ids = new Set(evidenceTurns(it && it.evidence))
+    const historical = ev.input_hash !== conv.source_hash
+    const ids = new Set(historical ? [] : evidenceTurns(it && it.evidence))
     const quoted = conv.transcript.filter(t => ids.has(t.turn_id))
     const revised = ev.revised_at != null
     const cardLink = `#/c/${encodeURIComponent(ev.conversation_id)}?e=${ev.id}`
@@ -82,12 +83,12 @@ export async function appealView(root, id, _params, ctx) {
             c.na_allowed && [h('dt', null, 'Условие N/A'), h('dd', null, c.na_rule || 'разрешён')],
             h('dt', null, 'Ответ модели'), h('dd', null, answer(a.original_answer, c)),
             it && it.reason && [h('dt', null, 'Причина модели'), h('dd', null, it.reason)]),
-          h('h3', null, 'Доказательство', it && evidenceLabel(it.evidence) ? ` · ${evidenceLabel(it.evidence)}` : ''),
+          h('h3', null, 'Доказательство', !historical && it && evidenceLabel(it.evidence) ? ` · ${evidenceLabel(it.evidence)}` : ''),
           quoted.length ? h('ol', { class: 'turns compact' }, quoted.map(t =>
             h('li', { class: `turn hl r-${String(t.speaker).toLowerCase()}` },
               h('div', { class: 'turn-meta' }, h('span', { class: 'who' }, role(t.speaker)), h('span', { title: t.timestamp }, stamp(t.timestamp)), h('span', { class: 'tid' }, `#${t.turn_id}`)),
               h('div', { class: 'turn-text' }, t.text))))
-            : h('p', { class: 'muted' }, 'Модель не привязала ответ к репликам.'),
+            : h('p', { class: 'muted' }, historical ? 'Эта оценка относится к предыдущей версии текста. Цитаты из неё недоступны.' : 'Модель не привязала ответ к репликам.'),
           h('a', { class: 'btn small', href: cardLink }, 'Открыть в карточке')),
         h('section', { class: 'pane' },
           h('h2', null, 'Комментарий'),
@@ -107,12 +108,13 @@ export async function appealView(root, id, _params, ctx) {
   }
 
   function decideForm() {
-    const opts = answerOptions(c).filter(o => o !== a.original_answer)
+    const opts = answerOptions(c).filter(o => o !== String(a.original_answer))
     const pick = h('select', { id: 'new-answer', name: 'new_answer', disabled: true }, opts.map(o => h('option', { value: o }, answerLabel(o, c))))
     const err = h('div', { 'aria-live': 'assertive' })
     const reasonBox = h('textarea', { id: 'reason', rows: 3, required: true })
     const confirmed = h('input', { type: 'radio', name: 'decision', value: 'confirmed', onchange: () => { pick.disabled = true } })
     const changed = h('input', { type: 'radio', name: 'decision', value: 'changed', disabled: !opts.length, onchange: () => { pick.disabled = false } })
+    const submit = h('button', { class: 'btn primary' }, 'Сохранить решение')
     return h('form', { class: 'decide', onsubmit: async e => {
       e.preventDefault()
       const decision = confirmed.checked ? 'confirmed' : changed.checked ? 'changed' : ''
@@ -121,8 +123,10 @@ export async function appealView(root, id, _params, ctx) {
       if (!reason) return err.replaceChildren(h('p', { class: 'err-text' }, 'Укажите причину решения.')) || reasonBox.focus()
       const body = { decision, reason }
       if (decision === 'changed') body.new_answer = /^\d+$/.test(pick.value) ? Number(pick.value) : pick.value
+      submit.disabled = true
       try {
         const res = await api.decide(a.id, body)
+        if (!ctx.alive()) return
         a = res.appeal
         ev = res.evaluation
         toast(`Решение сохранено. Итог: ${total(ev.final_total)}`)
@@ -130,6 +134,8 @@ export async function appealView(root, id, _params, ctx) {
         render()
       } catch (e2) {
         err.replaceChildren(h('p', { class: 'err-text' }, e2.message))
+      } finally {
+        submit.disabled = false
       }
     } },
       h('h2', null, 'Решение проверяющего'),
@@ -139,6 +145,6 @@ export async function appealView(root, id, _params, ctx) {
       h('div', { class: 'field' }, h('label', { for: 'new-answer' }, 'Новый ответ'), pick),
       h('div', { class: 'field' }, h('label', { for: 'reason' }, 'Причина'), reasonBox),
       err,
-      h('button', { class: 'btn primary' }, 'Сохранить решение'))
+      submit)
   }
 }

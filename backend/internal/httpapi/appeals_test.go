@@ -184,6 +184,13 @@ func TestChecklistEditAndAppealCycle(t *testing.T) {
 	if *decided.Evaluation.FinalTotal != 86.32 || decided.Appeal.FinalAnswer != nil {
 		t.Fatalf("confirm must not change total: %+v", decided.Appeal)
 	}
+	var summaries []domain.ConversationSummary
+	do(t, h, "GET", "/api/conversations", nil, &summaries)
+	for _, c := range summaries {
+		if c.ID == ev.ConversationID && (c.LatestTotal == nil || *c.LatestTotal != 86.32) {
+			t.Fatalf("registry total after appeal: %+v", c)
+		}
+	}
 
 	var open []domain.Appeal
 	do(t, h, "GET", "/api/appeals?status=open", nil, &open)

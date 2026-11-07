@@ -45,7 +45,10 @@ func (s *Server) exportEvaluations(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, err)
 			return
 		}
-		records = append(records, export.Build(conv, ev))
+		record := export.Build(conv, ev)
+		if all || !record.Historical {
+			records = append(records, record)
+		}
 	}
 	stamp := time.Now().UTC().Format("20060102-150405")
 	if format == "csv" {

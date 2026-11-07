@@ -1,10 +1,13 @@
 """Local HTTP bridge for the Go evaluation queue."""
 
 import argparse
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from threading import Lock
+from urllib.error import URLError
+from urllib.request import ProxyHandler, build_opener
 
-from ml.evaluator import EvaluationError, evaluate
+from ml.evaluator import MODEL, EvaluationError, evaluate
 
 MAX_REQUEST_BYTES = 4 * 1024 * 1024
 
@@ -70,8 +73,27 @@ def _backend_response(result, gross_id, categories):
             "results": rows, "gross_error": gross}
 
 
-def make_server(address, run_evaluation=evaluate):
+def _model_ready():
+    opener = build_opener(ProxyHandler({}))
+    try:
+        with opener.open("http://127.0.0.1:11434/api/tags", timeout=1) as response:
+            models = json.load(response)["models"]
+        return any(model.get("name") == MODEL for model in models)
+    except (URLError, TimeoutError, ValueError, KeyError, TypeError, AttributeError):
+        return False
+
+
+def make_server(address, run_evaluation=evaluate, model_ready=_model_ready):
+    inference = Lock()
+
     class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path != "/health":
+                self.reply(404, {"error": "Unknown endpoint"})
+                return
+            ready = model_ready()
+            self.reply(200 if ready else 503, {"ready": ready, "model": MODEL})
+
         def do_POST(self):
             if self.path != "/evaluate":
                 self.reply(404, {"error": "Unknown endpoint"})
@@ -90,7 +112,8 @@ def make_server(address, run_evaluation=evaluate):
                 return
 
             try:
-                result = run_evaluation(conversation, rubric)
+                with inference:
+                    result = run_evaluation(conversation, rubric)
             except EvaluationError as exc:
                 self.reply(502, {"error": str(exc)})
                 return
@@ -102,10 +125,13 @@ def make_server(address, run_evaluation=evaluate):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
 
-    # The development laptop runs one inference at a time.
-    return HTTPServer(address, Handler)
+    # Probes can respond during inference. Only one evaluation can acquire the lock.
+    return ThreadingHTTPServer(address, Handler)
 
 
 def main():

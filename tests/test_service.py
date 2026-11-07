@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import threading
 import unittest
@@ -12,6 +13,9 @@ from ml.service import make_server
 
 class ServiceTests(unittest.TestCase):
     def setUp(self):
+        self.hold = False
+        self.entered = threading.Event()
+        self.release = threading.Event()
         self.dialogue = {
             "conversation_id": "synthetic",
             "channel": "agent chat", "language": "KZ",
@@ -41,11 +45,15 @@ class ServiceTests(unittest.TestCase):
         }
 
         def fake_chat(payload):
+            if self.hold:
+                self.entered.set()
+                if not self.release.wait(4):
+                    raise RuntimeError("Test did not release inference")
             self.sent = json.loads(payload["messages"][-1]["content"])
             return {"done": True, "done_reason": "stop",
                     "message": {"content": json.dumps(self.scores)}}
 
-        self.server = make_server(("127.0.0.1", 0), partial(evaluate, chat=fake_chat))
+        self.server = make_server(("127.0.0.1", 0), partial(evaluate, chat=fake_chat), lambda: True)
         self.thread = threading.Thread(target=self.server.serve_forever)
         self.thread.start()
         self.addCleanup(self.server.server_close)
@@ -69,6 +77,22 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(result["gross_error"]["category"], "Confidential disclosure")
         self.assertTrue(result["gross_error"]["flag"])
         self.assertTrue(result["prompt_version"])
+
+    def test_health_during_inference(self):
+        self.hold = True
+        data = {"conversation": self.dialogue, "checklist": self.checklist}
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(self.post, data)
+            try:
+                self.assertTrue(self.entered.wait(2))
+                second = pool.submit(self.post, data)
+                url = f"http://127.0.0.1:{self.server.server_port}/health"
+                with urlopen(url, timeout=2) as response:
+                    self.assertTrue(json.load(response)["ready"])
+                self.assertFalse(first.done())
+            finally:
+                self.release.set()
+            self.assertEqual(first.result()["results"], second.result()["results"])
 
     def test_incomplete_model_response_is_error(self):
         del self.scores["custom"]
