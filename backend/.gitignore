@@ -1,0 +1,4 @@
+resources/
+*.db
+*.db-wal
+*.db-shm

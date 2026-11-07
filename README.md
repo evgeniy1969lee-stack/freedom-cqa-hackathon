@@ -2,7 +2,7 @@
 
 Prototype for evaluating customer-support conversations against a configurable quality checklist.
 
-Status: planning. The application has not yet been implemented.
+Status: in development.
 
 Team roles and implementation prompts are in [docs/team-plan.md](docs/team-plan.md).
 
