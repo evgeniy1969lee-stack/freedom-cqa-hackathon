@@ -32,7 +32,7 @@ func newTestServer(t *testing.T) http.Handler {
 	if err := st.EnsureSeedChecklist(ctx, seed); err != nil {
 		t.Fatal(err)
 	}
-	return New(st, "", "", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return New(st, Options{MaxAttempts: 3}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
 func do(t *testing.T, h http.Handler, method, path string, body []byte, out any) int {

@@ -35,6 +35,12 @@ type ConversationSummary struct {
 	SourceHash string    `json:"source_hash"`
 	ImportedAt time.Time `json:"imported_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
+
+	LatestJobID        *int64     `json:"latest_job_id"`
+	LatestJobStatus    *JobStatus `json:"latest_job_status"`
+	LatestEvaluationID *int64     `json:"latest_evaluation_id"`
+	LatestTotal        *float64   `json:"latest_total"`
+	LatestGrossError   *bool      `json:"latest_gross_error"`
 }
 
 const (

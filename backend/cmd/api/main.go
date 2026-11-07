@@ -12,7 +12,9 @@ import (
 
 	"github.com/homepunks/datathong/internal/checklist"
 	"github.com/homepunks/datathong/internal/config"
+	"github.com/homepunks/datathong/internal/evaluator"
 	"github.com/homepunks/datathong/internal/httpapi"
+	"github.com/homepunks/datathong/internal/queue"
 	"github.com/homepunks/datathong/internal/store"
 )
 
@@ -46,9 +48,25 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	var ev evaluator.Evaluator
+	if cfg.MLURL == "" {
+		log.Warn("CQA_ML_URL is empty: using the stub evaluator; results are placeholders")
+		ev = evaluator.Stub{}
+	} else {
+		ev = evaluator.HTTP{URL: cfg.MLURL, Client: &http.Client{}}
+	}
+	worker := queue.New(st, ev, cfg.Workers, cfg.MLTimeout, log)
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		worker.Run(ctx)
+	}()
+
 	srv := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           httpapi.New(st, cfg.DevURL, cfg.StaticDir, log),
+		Addr: cfg.Addr,
+		Handler: httpapi.New(st, httpapi.Options{
+			DevURL: cfg.DevURL, StaticDir: cfg.StaticDir, Worker: worker, MaxAttempts: cfg.MaxAttempts,
+		}, log),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
@@ -57,9 +75,11 @@ func run(log *slog.Logger) error {
 		defer cancel()
 		srv.Shutdown(shutdownCtx)
 	}()
-	log.Info("listening", "addr", cfg.Addr, "db", cfg.DBPath, "dev_url_configured", cfg.DevURL != "")
+	log.Info("listening", "addr", cfg.Addr, "db", cfg.DBPath, "dev_url_configured", cfg.DevURL != "",
+		"ml_url_configured", cfg.MLURL != "", "workers", cfg.Workers, "ml_timeout", cfg.MLTimeout, "max_attempts", cfg.MaxAttempts)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+	<-workerDone
 	return nil
 }

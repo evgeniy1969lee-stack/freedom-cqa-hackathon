@@ -69,7 +69,12 @@ func (s *Store) UpsertConversation(ctx context.Context, c domain.Conversation) (
 func (s *Store) ListConversations(ctx context.Context) ([]domain.ConversationSummary, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT c.id, c.channel, c.language, c.audio_url, c.source_hash, c.imported_at, c.updated_at,
-		       (SELECT COUNT(*) FROM turns t WHERE t.conversation_id = c.id)
+		       (SELECT COUNT(*) FROM turns t WHERE t.conversation_id = c.id),
+		       (SELECT j.id FROM jobs j WHERE j.conversation_id = c.id ORDER BY j.id DESC LIMIT 1),
+		       (SELECT j.status FROM jobs j WHERE j.conversation_id = c.id ORDER BY j.id DESC LIMIT 1),
+		       (SELECT e.id FROM evaluations e WHERE e.conversation_id = c.id ORDER BY e.id DESC LIMIT 1),
+		       (SELECT e.total FROM evaluations e WHERE e.conversation_id = c.id ORDER BY e.id DESC LIMIT 1),
+		       (SELECT e.gross_error FROM evaluations e WHERE e.conversation_id = c.id ORDER BY e.id DESC LIMIT 1)
 		FROM conversations c ORDER BY c.updated_at DESC, c.id`)
 	if err != nil {
 		return nil, err
@@ -79,8 +84,25 @@ func (s *Store) ListConversations(ctx context.Context) ([]domain.ConversationSum
 	for rows.Next() {
 		var cs domain.ConversationSummary
 		var imported, updated string
-		if err := rows.Scan(&cs.ID, &cs.Channel, &cs.Language, &cs.AudioURL, &cs.SourceHash, &imported, &updated, &cs.TurnCount); err != nil {
+		var jobID, evalID sql.NullInt64
+		var status sql.NullString
+		var total sql.NullFloat64
+		var gross sql.NullBool
+		if err := rows.Scan(&cs.ID, &cs.Channel, &cs.Language, &cs.AudioURL, &cs.SourceHash, &imported, &updated, &cs.TurnCount,
+			&jobID, &status, &evalID, &total, &gross); err != nil {
 			return nil, err
+		}
+		if jobID.Valid {
+			cs.LatestJobID = &jobID.Int64
+			st := domain.JobStatus(status.String)
+			cs.LatestJobStatus = &st
+		}
+		if evalID.Valid {
+			cs.LatestEvaluationID = &evalID.Int64
+			cs.LatestGrossError = &gross.Bool
+		}
+		if total.Valid {
+			cs.LatestTotal = &total.Float64
 		}
 		cs.ImportedAt, cs.UpdatedAt = parseTime(imported), parseTime(updated)
 		out = append(out, cs)

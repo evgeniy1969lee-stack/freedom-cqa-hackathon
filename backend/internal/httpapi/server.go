@@ -13,20 +13,33 @@ import (
 	"time"
 
 	"github.com/homepunks/datathong/internal/importer"
+	"github.com/homepunks/datathong/internal/queue"
 	"github.com/homepunks/datathong/internal/store"
 )
 
 const maxBody = 64 << 20
 
 type Server struct {
-	store  *store.Store
-	devURL string
-	client *http.Client
-	log    *slog.Logger
+	store       *store.Store
+	worker      *queue.Worker
+	maxAttempts int
+	devURL      string
+	client      *http.Client
+	log         *slog.Logger
 }
 
-func New(st *store.Store, devURL, staticDir string, log *slog.Logger) http.Handler {
-	s := &Server{store: st, devURL: devURL, client: &http.Client{Timeout: 60 * time.Second}, log: log}
+type Options struct {
+	DevURL      string
+	StaticDir   string
+	Worker      *queue.Worker
+	MaxAttempts int
+}
+
+func New(st *store.Store, opt Options, log *slog.Logger) http.Handler {
+	if opt.MaxAttempts < 1 {
+		opt.MaxAttempts = 1
+	}
+	s := &Server{store: st, worker: opt.Worker, maxAttempts: opt.MaxAttempts, devURL: opt.DevURL, client: &http.Client{Timeout: 60 * time.Second}, log: log}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("POST /api/import", s.importBody)
@@ -35,8 +48,15 @@ func New(st *store.Store, devURL, staticDir string, log *slog.Logger) http.Handl
 	mux.HandleFunc("GET /api/conversations/{id}", s.getConversation)
 	mux.HandleFunc("GET /api/checklists", s.listChecklists)
 	mux.HandleFunc("GET /api/checklists/{version}", s.getChecklist)
-	if staticDir != "" {
-		mux.Handle("/", http.FileServer(http.Dir(staticDir)))
+	mux.HandleFunc("POST /api/conversations/{id}/evaluate", s.evaluateOne)
+	mux.HandleFunc("GET /api/conversations/{id}/evaluations", s.listEvaluations)
+	mux.HandleFunc("POST /api/evaluate/batch", s.evaluateBatch)
+	mux.HandleFunc("GET /api/jobs", s.listJobs)
+	mux.HandleFunc("GET /api/jobs/{id}", s.getJob)
+	mux.HandleFunc("POST /api/jobs/{id}/retry", s.retryJob)
+	mux.HandleFunc("GET /api/evaluations/{id}", s.getEvaluation)
+	if opt.StaticDir != "" {
+		mux.Handle("/", http.FileServer(http.Dir(opt.StaticDir)))
 	}
 	return cors(logRequests(log, mux))
 }
