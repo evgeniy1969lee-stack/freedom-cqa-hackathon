@@ -28,6 +28,9 @@ export async function listView(root, _arg, _params, ctx) {
   const filter = h('select', { 'aria-label': 'Статус оценки', onchange: () => render() },
     [['', 'Все статусы'], ['none', 'Не оценён'], ['queued', 'В очереди'], ['running', 'Выполняется'], ['completed', 'Готово'], ['failed', 'Ошибка']]
       .map(([value, name]) => h('option', { value }, name)))
+  const grossFilter = h('select', { 'aria-label': 'Грубые ошибки', onchange: () => render() },
+    h('option', { value: '' }, 'Все диалоги'),
+    h('option', { value: 'flagged' }, 'С грубой ошибкой'))
 
   root.append(
     h('header', { class: 'hero' },
@@ -42,7 +45,7 @@ export async function listView(root, _arg, _params, ctx) {
     h('section', { class: 'worklist', 'aria-label': 'Реестр диалогов' },
       h('div', { class: 'worklist-head' },
         h('div', null, h('h2', null, 'Реестр диалогов'), found),
-        h('div', { class: 'group filters' }, h('div', { class: 'search' }, icon('search'), search), filter)),
+        h('div', { class: 'group filters' }, h('div', { class: 'search' }, icon('search'), search), filter, grossFilter)),
       h('div', { class: 'worklist-actions' },
         h('div', { class: 'group' },
           h('label', { for: 'checklist-version' }, 'Чек-лист'), versionBox,
@@ -124,6 +127,7 @@ export async function listView(root, _arg, _params, ctx) {
   function render() {
     const query = search.value.trim().toLowerCase()
     const visible = convs.filter(c => (!filter.value || (c.latest_job_status || 'none') === filter.value)
+      && (!grossFilter.value || c.latest_gross_error)
       && (!query || [c.conversation_id, c.language, c.channel].some(value => value?.toLowerCase().includes(query))))
     found.textContent = visible.length === convs.length ? `Всего ${convs.length}` : `Показано ${visible.length} из ${convs.length}`
     updateActions()
@@ -134,7 +138,7 @@ export async function listView(root, _arg, _params, ctx) {
     }
     if (!visible.length) {
       body.replaceChildren(empty('Диалоги не найдены', 'Измените запрос или сбросьте фильтры.',
-        h('button', { class: 'btn', onclick: () => { search.value = ''; filter.value = ''; search.focus(); render() } }, 'Сбросить фильтры')))
+        h('button', { class: 'btn', onclick: () => { search.value = ''; filter.value = ''; grossFilter.value = ''; search.focus(); render() } }, 'Сбросить фильтры')))
       return
     }
 
