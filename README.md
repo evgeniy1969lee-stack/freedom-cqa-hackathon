@@ -1,24 +1,59 @@
-# Freedom CQA Hackathon
+# Freedom CQA · Нуфтяники
 
-Prototype for evaluating customer-support conversations against a configurable quality checklist.
+Рабочее место для контроля качества поддержки. Приложение импортирует транскрипты, оценивает их по выбранной версии чек-листа и показывает балл, обоснования и реплики-доказательства. В реестре можно отфильтровать грубые ошибки. Из карточки можно подать апелляцию и затем увидеть пересчитанный балл.
 
-The app serves the interface and API together and evaluates chats locally with Ollama.
+- [DEV · 65 оценок](results/dev/results.json)
+- [PROD · 10 контрольных чатов FBroker](results/prod/results.json)
+- [Формат JSON 1.0 и команды сдачи](docs/submission.md)
 
-Team roles and implementation prompts are in [docs/team-plan.md](docs/team-plan.md).
+## Запуск проекта и локальной модели
 
-The [submission guide](docs/submission.md) covers the organizer's JSON 1.0
-format and the commands for generating DEV and PROD files.
+Установите **Go 1.27.1+**, **Python 3.10+** и **Ollama**. Запустите Ollama. Откройте PowerShell и выполните:
 
-The project must keep credentials, signed dataset links, recordings, transcripts and local databases outside the public repository.
+~~~powershell
+git clone https://github.com/evgeniy1969lee-stack/freedom-cqa-hackathon.git
+cd freedom-cqa-hackathon
+ollama pull qwen3.5:2b
+python -X utf8 scripts/run_local.py
+~~~
 
-## ML-1 baseline
+После сообщения `CQA ready` откройте [http://127.0.0.1:8080/](http://127.0.0.1:8080/). В заголовке появится `qwen3.5:2b · готова`. Для проверки нажмите **Импорт JSON**, выберите [тестовый диалог](backend/testdata/example_conversation.json), откройте `example-001` и нажмите **Оценить**. Дождитесь результата и нажмите на ссылку под критерием, чтобы увидеть реплику. На ноутбуке с 8 ГБ ОЗУ приложение выполняет одну оценку за раз. Ctrl+C останавливает Go и Python.
 
-The evaluator uses the locally installed Ollama model. Run these commands from
-the repository root with Python 3.10+ and Ollama running.
+Запуск модели отдельно, без интерфейса и Go:
 
 ~~~powershell
 ollama list
 python -X utf8 -m ml.evaluator examples/synthetic-ru.json
+~~~
+
+Локальный запуск обслуживает интерфейс и API по одному адресу. Go ставит задачи в очередь и сохраняет версии, оценки и апелляции в SQLite. Python передаёт транскрипт и снимок чек-листа модели **Qwen3.5:2b** через локальный Ollama. Промпт `ml2-v4` запрашивает структурированные ответы, обоснования и ссылки на реплики. Go проверяет ответы и рассчитывает балл. Для звонков приложение использует предоставленный транскрипт и открывает запись отдельно.
+
+## Чек-лист и веса
+
+| № | Критерий | Вес | Допустимые ответы |
+| --- | --- | ---: | --- |
+| 01 | Установление контакта | 10 | Да, нет |
+| 02 | Выявление потребности | 15 | Да, нет, N/A |
+| 03 | Идентификация | 20 | Да, нет, N/A |
+| 04 | Корректная и полная консультация | 20 | 0, 5, 10, 15, 20, N/A |
+| 05 | Эмпатия и клиентоориентированность | 15 | Да, нет |
+| 06 | Управление диалогом, скорость и грамотность | 15 | 0, 4, 7, 10 |
+| 07 | Завершение | 5 | Да, нет, N/A |
+| 08 | Грубая ошибка | Отдельный флаг | Да, нет |
+
+«Да» даёт полный вес, «нет» даёт 0. Вклад шкального критерия равен `вес × ступень / максимальная ступень`. Итог равен `100 × сумма вкладов / сумма применимых весов`, с округлением до двух знаков. N/A исключается из расчёта. Например, 7 из 10 за управление диалогом даёт 10,5 из 15 взвешенных баллов.
+
+N/A разрешён, когда для выявления потребности уже хватало сведений, запрос не требовал идентификации, чат оборвался до формулировки запроса или оператор не успел завершить разговор. Для пропущенного действия система указывает проверенный участок. Категории грубой ошибки включают оскорбление клиента, предложение платной услуги в обход компании и раскрытие конфиденциальной информации. Полные правила и ступени хранятся в [конфигурации основного чек-листа](backend/internal/checklist/seed.json).
+
+В JSON 1.0 отправляется исходная автоматическая оценка. Апелляция хранится в истории отдельно. Номера доказательств в файлах сдачи начинаются с 1 и относятся ко всему исходному массиву реплик. Ссылки с ключами доступа, исходные транскрипты, аудио и локальные базы хранятся вне публичного Git.
+
+[Роли команды и план](docs/team-plan.md)
+
+## ML-1 baseline
+
+Run the Python verification suite from the repository root.
+
+~~~powershell
 python -m unittest discover -s tests -v
 ~~~
 
@@ -44,20 +79,10 @@ output cap is 768 tokens. The service allows up to nine minutes per
 Ollama request with the larger context on CPU. The CLI accepts
 `--num-ctx` and `--model` overrides for diagnosis.
 
-## Run the backend with local ML
+## Manual startup and troubleshooting
 
-Install Go 1.27.1 or later, Python 3.10 or later, and Ollama. With Ollama
-running, install the local model once with `ollama pull qwen3.5:2b`. From the
-repository root, run:
-
-~~~powershell
-python -X utf8 scripts/run_local.py
-~~~
-
-Open `http://127.0.0.1:8080/` after `CQA ready` appears. The launcher builds Go,
-starts the Python bridge and app, and waits for the Ollama model readiness check.
-It binds to localhost. Use `--api-port`, `--ml-port`, and `--db` for an isolated
-run, or `--go` if Go is installed outside `PATH`. Ctrl+C stops both services.
+The launcher binds to localhost. Use `--api-port`, `--ml-port`, and `--db`
+for an isolated run, or `--go` if Go is installed outside `PATH`.
 
 To start the services manually for debugging, start the Python HTTP service in
 a terminal at the repository root.
